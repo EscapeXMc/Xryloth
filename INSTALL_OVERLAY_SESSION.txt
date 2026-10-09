@@ -1,0 +1,59 @@
+========================================
+Xryloth Tauri - Install Overlay Session
+Date: 2026-07-13
+========================================
+
+OBJECTIVE
+---------
+Fix the Xryloth Tauri Minecraft launcher's installation process to show a real-time log popup/overlay with live progress during instance installation (downloading jar, assets, natives, libs, etc.), and show "Close" and "Run" buttons after installation completes.
+
+Previously the frontend only showed a generic spinner with no live logs; assets/natives/libs needed to actually install with visible progress.
+
+COMPLETED WORK
+--------------
+
+1. Backend (lib.rs) - DONE IN PREVIOUS SESSION
+   - Modified `install_instance` Rust command to accept `app_handle: tauri::AppHandle` parameter
+   - Added Tauri event emission via `app_handle.emit_all()` at every major step
+   - Added actual asset object downloading (iterates asset index objects, downloads from resources.download.minecraft.net)
+   - Progress percentage computed and emitted for each phase (2%→100%)
+   - Events emitted: "install-progress" with {step, message, progress, done, error}
+
+2. Created src/components/ui/InstallOverlay.tsx
+   - Terminal-style log viewer with scrolling monospace logs
+   - Animated progress bar with gradient colors (accent→purple while installing, green on complete, red on error)
+   - Current step display with pulsing indicator
+   - Listens to "install-progress" Tauri events via listen() from @tauri-apps/api/event
+   - Triggers api.instances.install() on mount
+   - Footer shows "Close" and "Play Now" buttons when installation completes
+   - Shows a "Close" danger button if installation fails
+   - Shows a spinner while installing
+
+3. Updated src/components/pages/InstancesPage.tsx
+   - Added installOverlay state to track which instance is being installed
+   - handleInstall now sets the overlay state instead of calling generic setLoading
+   - handleInstallClose refreshes instances and closes the overlay
+   - handleInstallPlay refreshes instances, closes overlay, and launches the game
+   - InstallOverlay rendered with AnimatePresence for smooth enter/exit transitions
+   - Performance mods auto-install still runs after overlay completes
+
+4. TypeScript compiles cleanly (verified with npx tsc --noEmit)
+
+KEY FILES
+---------
+- src-tauri/src/lib.rs: Backend install_instance command with event emission and asset downloading
+- src/components/ui/InstallOverlay.tsx: NEW - live log viewer overlay component
+- src/components/pages/InstancesPage.tsx: Updated to use InstallOverlay during installation
+- src/lib/api.ts: Frontend API layer (unchanged, already had install endpoint)
+- src/stores/index.ts: Zustand store (unchanged)
+- src/components/ui/GlowButton.tsx: Reusable button component (used by overlay)
+- src/components/ui/GlassCard.tsx: Glass card component
+- src/App.tsx: Main app component (unchanged)
+
+TECHNICAL DETAILS
+-----------------
+- Project: Tauri v1 + React + TypeScript + Zustand
+- Path: C:\Users\power\Desktop\Xryloth\XrylothTauri
+- Tauri events (app_handle.emit_all()) stream progress from blocking backend commands to frontend
+- Frontend listens via listen() from @tauri-apps/api/event
+- InstallEvent payload: {step: string, message: string, progress: number, done?: boolean, error?: string}

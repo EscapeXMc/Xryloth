@@ -1,0 +1,32 @@
+[package]
+name = "xryloth"
+version = "5.9.1"
+description = "Xryloth - Minecraft Launcher"
+authors = ["EscapeXOG"]
+edition = "2021"
+
+[lib]
+name = "xryloth_lib"
+crate-type = ["lib"]
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[build-dependencies]
+tauri-build = { version = "1.5", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+tauri = { version = "1.6", features = [ "shell-open", "shell-execute", "shell-sidecar", "dialog-all", "clipboard-all", "fs-all", "path-all", "window-all", "protocol-asset"] }
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.11", features = ["json", "stream", "blocking"] }
+chrono = { version = "0.4", features = ["serde"] }
+base64 = "0.21"
+zip = { version = "0.6", default-features = false, features = ["deflate"] }
+tempfile = "3"
+dirs = "5"
+urlencoding = "2.1"
+webbrowser = "0.8"
+regex-lite = "0.1"

@@ -1,0 +1,50 @@
+=== Xryloth Tauri - Chat Log ===
+=== Date: 2026-07-20 ===
+
+--- PROBLEM 1: Forge version list 404 ---
+
+The launcher was using a broken URL for fetching Forge versions:
+  BROKEN: https://files.minecraftforge.net/maven/net/minecraftforge/forge/json
+  This returned a 404 because Forge migrated their infrastructure.
+
+FIX: Replaced with Maven metadata XML parsing from:
+  https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml
+
+Files changed: src-tauri/src/lib.rs
+
+Change 1 - Install auto-detection (was line ~749):
+  Replaced the broken http_get() JSON promos endpoint with:
+  - reqwest blocking client fetching maven-metadata.xml
+  - Parsing XML lines for >{mc_version}- prefix
+  - Returning the full Maven version string (e.g. "1.8.9-11.15.1.2318-1.8.9")
+  - This is the same approach already used for NeoForge
+
+Change 2 - Version picker UI (was line ~1087):
+  Same fix - parses Maven metadata XML instead of broken JSON promos.
+  Returns all available Forge versions for the selected MC version.
+
+Change 3 - Installer URL (line ~947):
+  No change needed - already used actual_loader_version directly in the URL template.
+  Now correctly constructs URLs like:
+  https://maven.minecraftforge.net/net/minecraftforge/forge/1.8.9-11.15.1.2318-1.8.9/forge-1.8.9-11.15.1.2318-1.8.9-installer.jar
+
+Key findings:
+- Forge Maven metadata versions for 1.8.9 are in format: 1.8.9-11.15.1.2318-1.8.9
+  (with MC version prefix AND suffix, not just the Forge version number)
+- The NeoForge-style digit-only check (ver.chars().all(|c| c.is_ascii_digit() || c == '.'))
+  would NOT work for Forge because versions contain hyphens
+- So the Forge fix uses a simpler "first match" approach since Maven metadata lists
+  versions in reverse order (newest first)
+
+Build command: npx tauri build (from project root)
+  Outputs:
+  - src-tauri\target\release\bundle\nsis\Xryloth_5.9.0_x64-setup.exe
+  - src-tauri\target\release\bundle\msi\Xryloth_5.9.0_x64_en-US.msi
+
+--- PROBLEM 2: Game exit code 1 ---
+
+After fixing the Forge install, the game crashed immediately with exit code 1.
+Root cause: MC 1.8.9 requires Java 8, but the launcher was using JDK 21
+from C:\Program Files\Microsoft\jdk-21.0.11.10-hotspot\bin\java.exe
+
+User will fix this themselves by providing a Java 8 installation.

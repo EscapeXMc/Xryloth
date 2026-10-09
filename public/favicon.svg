@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <!-- Metallic silver gradient for realistic metal texture -->
+    <linearGradient id="silverGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="25%" stop-color="#E0E0E0"/>
+      <stop offset="50%" stop-color="#999999"/>
+      <stop offset="75%" stop-color="#E8E8E8"/>
+      <stop offset="100%" stop-color="#B0B0B0"/>
+    </linearGradient>
+
+    <!-- Slice slash gradient with sharp bright edge -->
+    <linearGradient id="slashGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="50%" stop-color="#ECECEC"/>
+      <stop offset="100%" stop-color="#FFFFFF"/>
+    </linearGradient>
+
+    <!-- Subtle drop shadow on lower-right sliced fragment -->
+    <filter id="sliceShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="-3" dy="-3" stdDeviation="4" flood-color="#000000" flood-opacity="0.9"/>
+    </filter>
+  </defs>
+
+  <!-- Solid dark background matching original frame -->
+  <rect width="500" height="500" fill="#050505"/>
+
+  <g transform="translate(0, 0)">
+    <!-- Top-Left & Upper Main Segment of the Sliced X -->
+    <path d="M 155 183 L 205 183 L 256 242 C 248 247 240 253 232 260 Z" fill="url(#silverGradient)" />
+
+    <!-- Bottom-Left Leg Segment -->
+    <path d="M 206 303 L 206 338 L 261 270 C 250 280 230 295 206 303 Z" fill="url(#silverGradient)" />
+
+    <!-- Top-Right Point / Edge Segment -->
+    <path d="M 282 238 L 308 238 L 291 251 C 286 248 283 243 282 238 Z" fill="url(#silverGradient)" />
+
+    <!-- Main Sliced Upper Arm & Right Diagonal Branch -->
+    <path d="M 155 183 L 205 183 L 350 338 L 300 338 Z" fill="url(#silverGradient)" />
+
+    <!-- Bottom-Right Sliced Offset Piece with Shadow Layer -->
+    <path d="M 235 264 L 280 238 L 350 338 L 300 338 Z" fill="url(#silverGradient)" filter="url(#sliceShadow)" />
+
+    <!-- Sharp Slicing Blade / Slash Flare Line -->
+    <polygon points="146,340 349,158 343,158 144,340" fill="url(#slashGradient)" />
+  </g>
+</svg>
+
