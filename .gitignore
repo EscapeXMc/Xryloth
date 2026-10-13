@@ -29,3 +29,9 @@ Thumbs.db
 # Local app data
 .xryloth/
 DEV_LOG.txt
+
+# installer build outputs (Electron subproject + NSIS exes)
+xryloth-installer/
+src-tauri/xryloth-installer/
+src-tauri/*_setup.exe
+src-tauri/xryloth_installer_*.exe

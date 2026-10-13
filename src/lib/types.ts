@@ -47,7 +47,7 @@ export interface Settings {
   java_directory?: string;
   mods_directory?: string;
   auto_check_updates?: boolean;
-  launcher_bg_type?: "default" | "image" | "video";
+  launcher_bg_type?: "default" | "image" | "video" | "none";
   launcher_bg_image?: string;
   launcher_bg_video?: string;
   launcher_bg_opacity?: number;
@@ -115,6 +115,19 @@ export interface NewsItem {
   date: string;
   type: string;
   image?: string;
+}
+
+export interface ServerStatus {
+  online: boolean;
+  host: string;
+  port: string;
+  version: string;
+  players_online: number;
+  players_max: number;
+  motd: string;
+  icon: string;
+  latency: number;
+  error?: string;
 }
 
 export interface SystemInfo {

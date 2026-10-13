@@ -5,8 +5,13 @@ import { GlassCard } from "../ui/GlassCard";
 import { GlowButton } from "../ui/GlowButton";
 import { GlassInput } from "../ui/FormControls";
 import {
-  Users, Plus, Trash2, Monitor, Check, ExternalLink, AlertCircle, Shield
+  Users, Plus, Trash2, Monitor, Check, ExternalLink, AlertCircle, Shield,
+  Mail, Lock, LogOut, BadgeCheck, UserPlus,
 } from "lucide-react";
+import {
+  signup, login, logout, resendVerification, getSession, onSessionChanged,
+  type XrylothSession,
+} from "../../lib/auth";
 
 interface Account {
   type: "microsoft" | "elyby" | "offline";
@@ -33,6 +38,36 @@ export function AccountsPage() {
   const [offlineUsername, setOfflineUsername] = useState("");
   const [skinFile, setSkinFile] = useState<string | null>(null);
   const [skinInfo, setSkinInfo] = useState<{ custom_skin_path: string; has_skin: boolean } | null>(null);
+  // Xryloth account (optional email auth)
+  const [xSession, setXSession] = useState<XrylothSession | null>(() => getSession());
+  const [xMode, setXMode] = useState<"login" | "signup">("login");
+  const [xEmail, setXEmail] = useState("");
+  const [xPass, setXPass] = useState("");
+  const [xName, setXName] = useState("");
+  const [xBusy, setXBusy] = useState(false);
+  const [xMsg, setXMsg] = useState<{ kind: "ok" | "err" | "info"; text: string } | null>(null);
+
+  useEffect(() => onSessionChanged(setXSession), []);
+
+  const submitXryloth = async () => {
+    setXBusy(true);
+    setXMsg(null);
+    const res = xMode === "signup"
+      ? await signup(xEmail, xPass, xName)
+      : await login(xEmail, xPass);
+    setXBusy(false);
+    if (res.ok && res.needsVerification) {
+      setXMsg({ kind: "info", text: "Account created! Check your inbox and verify your email, then log in." });
+      setXMode("login");
+    } else if (res.ok) {
+      setXMsg({ kind: "ok", text: xSession?.isAdmin ? "Welcome, Admin." : "Signed in!" });
+      setXEmail(""); setXPass(""); setXName("");
+    } else if (res.needsVerification) {
+      setXMsg({ kind: "info", text: res.error || "Please verify your email first." });
+    } else {
+      setXMsg({ kind: "err", text: res.error || "Failed." });
+    }
+  };
 
   useEffect(() => {
     const savedAccounts = (settings as any).accounts || [];
@@ -273,6 +308,63 @@ export function AccountsPage() {
           </div>
         </GlassCard>
       </div>
+
+      <GlassCard>
+        <div className="flex items-center gap-2 mb-1">
+          <Mail size={16} style={{ color: themeColors.success }} />
+          <h3 className="tinycaps text-sm font-semibold" style={{ color: themeColors.text_main }}>Xryloth Account</h3>
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: `${themeColors.success}15`, color: themeColors.success }}>OPTIONAL</span>
+          {xSession?.isAdmin && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5" style={{ background: `${themeColors.warn}18`, color: themeColors.warn }}><BadgeCheck size={9} /> ADMIN</span>
+          )}
+        </div>
+        <p className="text-xs mb-3" style={{ color: themeColors.text_muted }}>
+          Sign up with email + password (verification required). Never compulsory — the launcher works fully without it.
+        </p>
+        {xSession ? (
+          <div className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{ background: `${themeColors.success}08`, border: `1px solid ${themeColors.success}25` }}>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: `${themeColors.success}20`, color: themeColors.success }}>
+              {xSession.username[0].toUpperCase()}
+            </div>
+            <div className="flex-1">
+              <div className="text-sm font-medium" style={{ color: themeColors.text_main }}>{xSession.username}</div>
+              <div className="text-[10px]" style={{ color: themeColors.text_muted }}>{xSession.email}{xSession.isAdmin ? " · full admin access" : ""}</div>
+            </div>
+            <button onClick={() => logout()} className="p-1.5 rounded-lg flex items-center gap-1 text-xs" style={{ color: themeColors.danger }}>
+              <LogOut size={13} /> Sign Out
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex gap-1 p-1 rounded-lg" style={{ background: themeColors.bg_card2 }}>
+              {(["login", "signup"] as const).map((m) => (
+                <button key={m} onClick={() => { setXMode(m); setXMsg(null); }}
+                  className="flex-1 py-1.5 rounded-md text-xs font-semibold tinycaps"
+                  style={{ background: xMode === m ? `${themeColors.accent}20` : "transparent", color: xMode === m ? themeColors.accent : themeColors.text_muted }}>
+                  {m === "login" ? "Log In" : "Sign Up"}
+                </button>
+              ))}
+            </div>
+            {xMode === "signup" && (
+              <GlassInput value={xName} onChange={setXName} placeholder="Username" onKeyDown={(e) => e.key === "Enter" && submitXryloth()} />
+            )}
+            <GlassInput value={xEmail} onChange={setXEmail} placeholder="Email address" onKeyDown={(e) => e.key === "Enter" && submitXryloth()} />
+            <GlassInput value={xPass} onChange={setXPass} placeholder="Password (min 6 chars)" type="password" onKeyDown={(e) => e.key === "Enter" && submitXryloth()} />
+            {xMsg && (
+              <p className="text-xs" style={{ color: xMsg.kind === "err" ? themeColors.danger : xMsg.kind === "ok" ? themeColors.success : themeColors.warn }}>{xMsg.text}</p>
+            )}
+            <GlowButton size="sm" onClick={submitXryloth} disabled={xBusy} className="w-full flex items-center justify-center gap-1" style={{ background: themeColors.success }}>
+              {xMode === "signup" ? <UserPlus size={14} /> : <Lock size={14} />} {xBusy ? "Please wait..." : xMode === "signup" ? "Create Account" : "Log In"}
+            </GlowButton>
+            {xMode === "login" && (
+              <button onClick={async () => { const r = await resendVerification(xEmail, xPass); setXMsg(r.ok ? { kind: "ok", text: "Verification email re-sent." } : { kind: "err", text: r.error || "Failed." }); }}
+                className="text-[11px] underline w-full text-center" style={{ color: themeColors.text_muted }}>
+                Didn't get the verification email? Re-send it
+              </button>
+            )}
+          </div>
+        )}
+      </GlassCard>
 
       <GlassCard>
         <h3 className="tinycaps text-sm font-semibold mb-3" style={{ color: themeColors.text_main }}>Your Accounts</h3>

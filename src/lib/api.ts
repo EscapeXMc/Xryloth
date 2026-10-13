@@ -1,6 +1,6 @@
 import { invoke as tauriInvoke } from "@tauri-apps/api/tauri";
 import { isTauri } from "./tauri";
-import type { Settings, Instance, ModrinthHit, LoaderVersion, NewsItem, SystemInfo, ModProfile, ModUpdate, ModDependency, ModConflict, CrashLogInfo, MrpackExportResult, UpdateInfo } from "./types";
+import type { Settings, Instance, ModrinthHit, LoaderVersion, NewsItem, SystemInfo, ModProfile, ModUpdate, ModDependency, ModConflict, CrashLogInfo, MrpackExportResult, UpdateInfo, ServerStatus } from "./types";
 
 // Guard every backend call: outside the Tauri shell `window.__TAURI_IPC__`
 // does not exist, so calling `invoke` directly throws
@@ -90,6 +90,11 @@ export const api = {
   },
   news: {
     get: () => invoke<NewsItem[]>("get_minecraft_news"),
+  },
+  partners: {
+    fetchRemote: () => invoke<Record<string, unknown>[]>("fetch_partners_remote"),
+    status: (host: string, port: string) =>
+      invoke<ServerStatus>("get_server_status", { host, port }),
   },
   skin: {
     getInfo: () => invoke<{ custom_skin_path: string; has_skin: boolean }>("get_skin_info"),

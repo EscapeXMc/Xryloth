@@ -10,6 +10,7 @@ const PAGE_LABELS: Record<string, string> = {
   packs: "Resource Packs",
   modpacks: "Modpacks",
   servers: "Servers",
+  partners: "Partners",
   chat: "Chat",
   templates: "Templates",
   themes: "Themes",

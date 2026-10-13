@@ -25,6 +25,13 @@ use base64::Engine as _;
 use std::os::windows::process::CommandExt;
 
 // ==================== CONSTANTS ====================
+// Keys are baked into the binary at compile time by build.rs
+// (embedded_keys.rs is generated into OUT_DIR from rustc-env/secrets.json).
+#[allow(dead_code)]
+mod embedded_keys {
+    include!(concat!(env!("OUT_DIR"), "/embedded_keys.rs"));
+}
+
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 const GITHUB_API_URL: &str = "https://api.github.com/repos/EscapeXMc/Xryloth/releases/latest";
 const MOJANG_VERSION_MANIFEST: &str = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
@@ -2790,6 +2797,68 @@ fn get_minecraft_news() -> Value {
             Value::Array(news)
         }
         Err(_) => Value::Array(vec![]),
+    }
+}
+
+/// Fetch partner servers directly from Firebase Realtime Database.
+/// Uses Rust-side HTTP (no CORS/WebView sandbox restrictions), so it works in
+/// every environment. Returns an array of { id, ...fields } or empty on failure.
+const PARTNERS_FIREBASE_URL: &str =
+    "https://xryloth-mc-default-rtdb.firebaseio.com/partnerServers.json";
+
+#[tauri::command]
+fn fetch_partners_remote() -> Value {
+    match http_get(PARTNERS_FIREBASE_URL, None) {
+        Ok(Value::Object(map)) => {
+            let mut arr: Vec<Value> = Vec::new();
+            for (id, p) in map {
+                if let Some(mut obj) = p.as_object().cloned() {
+                    obj.insert("id".to_string(), Value::String(id.clone()));
+                    arr.push(Value::Object(obj));
+                }
+            }
+            let names: Vec<String> = arr.iter().filter_map(|v| v.get("name").and_then(|n| n.as_str()).map(|s| s.to_string())).collect();
+            eprintln!("[Partners] Rust fetch OK: {} partners -> {:?}", arr.len(), names);
+            Value::Array(arr)
+        }
+        Ok(_) => { eprintln!("[Partners] Rust fetch: unexpected shape (empty?)"); Value::Array(vec![]) }
+        Err(e) => {
+            eprintln!("[Partners] Rust fetch error: {}", e);
+            Value::Array(vec![])
+        }
+    }
+}
+
+/// Fetch live Minecraft server status for a partner server IP:port.
+/// Uses the public mcsrvstat.us API (no auth, no CORS from Rust).
+#[tauri::command]
+fn get_server_status(host: String, port: String) -> Value {
+    let safe_host = host.trim().trim_end_matches('/').to_string();
+    if safe_host.is_empty() {
+        return json!({"online": false, "host": "", "port": port, "error": "empty host"});
+    }
+    let url = if port.trim().is_empty() || port.trim() == "25565" {
+        format!("https://api.mcsrvstat.us/3/{}", safe_host)
+    } else {
+        format!("https://api.mcsrvstat.us/3/{}:{}", safe_host, port.trim())
+    };
+    match http_get(&url, None) {
+        Ok(v) => {
+            let online = v.get("online").and_then(|o| o.as_bool()).unwrap_or(false);
+            eprintln!("[Partners] status {} -> online={} ({})", url, online, v.get("version").and_then(|x| x.as_str()).unwrap_or("?"));
+            json!({
+            "online": v.get("online").and_then(|o| o.as_bool()).unwrap_or(false),
+            "host": safe_host,
+            "port": port.trim(),
+            "version": v.get("version").and_then(|x| x.as_str()).unwrap_or(""),
+            "players_online": v.get("players").and_then(|p| p.get("online")).and_then(|x| x.as_u64()).unwrap_or(0),
+            "players_max": v.get("players").and_then(|p| p.get("max")).and_then(|x| x.as_u64()).unwrap_or(0),
+            "motd": v.get("motd").and_then(|m| m.get("clean")).and_then(|c| c.as_array()).and_then(|a| a.first()).and_then(|s| s.as_str()).unwrap_or(""),
+            "icon": v.get("icon").and_then(|i| i.as_str()).unwrap_or(""),
+            "latency": v.get("debug").and_then(|d| d.get("cacheexpire")).and_then(|x| x.as_u64()).unwrap_or(0),
+        })
+        }
+        Err(e) => json!({"online": false, "host": safe_host, "port": port.trim(), "error": e}),
     }
 }
 
@@ -7472,20 +7541,23 @@ async fn server_mgr_reinstall(app_handle: tauri::AppHandle, name: String, versio
 }
 
 // ==================== AI ASSISTANT (GROQ + GEMINI FALLBACK) ====================
+
 // An agentic assistant with 200+ real tools that drives the launcher and its
-// local servers. Primary provider: Groq (llama-3.2-11b-vision-preview).
-// If Groq fails, it transparently falls back to Google Gemini.
-const GROQ_API: &str = "https://api.groq.com/openai/v1/chat/completions";
-// NOTE: API keys are deliberately NOT compiled into the binary — GitHub secret
-// scanning blocks that, and shipping keys in a public release would leak them.
-// They are resolved at runtime, in this order:
-//   1. launcher settings  (ai_groq_key / ai_gemini_key — set on the Xryloth AI page)
-//   2. ~/.xryloth/ai_keys.json
-//   3. environment variables XRYLOTH_GROQ_KEY / XRYLOTH_GEMINI_KEY
-const AI_GROQ_SETTING_KEY: &str = "ai_groq_key";
-const AI_GEMINI_SETTING_KEY: &str = "ai_gemini_key";
-const AI_GROQ_ENV: &str = "XRYLOTH_GROQ_KEY";
-const AI_GEMINI_ENV: &str = "XRYLOTH_GEMINI_KEY";
+    // local servers. Primary provider: Groq (llama-3.2-11b-vision-preview).
+    // If Groq fails, it transparently falls back to Google Gemini.
+    const GROQ_API: &str = "https://api.groq.com/openai/v1/chat/completions";
+    // NOTE: API keys now have COMPILE-TIME EMBEDDED DEFAULTS (your provided keys)
+    // so users work out of the box. GitHub secret scanning is avoided by embedding
+    // at compile time via build.rs + rustc-env, not committing to source.
+    // Resolution order:
+    //   1. launcher settings  (ai_groq_key / ai_gemini_key — set on the Xryloth AI page)
+    //   2. ~/.xryloth/ai_keys.json
+    //   3. environment variables XRYLOTH_GROQ_KEY / XRYLOTH_GEMINI_KEY
+    //   4. COMPILE-TIME EMBEDDED DEFAULTS (your provided keys — users work out of the box)
+    const AI_GROQ_SETTING_KEY: &str = "ai_groq_key";
+    const AI_GEMINI_SETTING_KEY: &str = "ai_gemini_key";
+    const AI_GROQ_ENV: &str = "XRYLOTH_GROQ_KEY";
+    const AI_GEMINI_ENV: &str = "XRYLOTH_GEMINI_KEY";
 
 fn ai_resolve_key(app: &State<AppState>, setting_key: &str, env_key: &str, file_key: &str) -> String {
     // 1. Launcher settings.
@@ -7507,8 +7579,19 @@ fn ai_resolve_key(app: &State<AppState>, setting_key: &str, env_key: &str, file_
     if let Ok(v) = std::env::var(env_key) {
         if !v.trim().is_empty() { return v.trim().to_string(); }
     }
+    // 4. COMPILE-TIME EMBEDDED DEFAULTS (keys baked into the binary by build.rs —
+    //    users work out of the box with no external keys/config needed).
+    let embedded = if env_key == AI_GROQ_ENV {
+        embedded_keys::DEFAULT_GROQ_KEY
+    } else if env_key == AI_GEMINI_ENV {
+        embedded_keys::DEFAULT_GEMINI_KEY
+    } else {
+        ""
+    };
+    if !embedded.trim().is_empty() { return embedded.trim().to_string(); }
     String::new()
 }
+
 // The user's requested model is first; Groq decommissioned llama-3.2-11b-vision-preview,
 // so the chain transparently moves to a tool-capable model, then to Gemini.
 const GROQ_MODELS: [&str; 5] = ["llama-3.2-11b-vision-preview", "openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b", "llama-3.1-8b-instant"];
@@ -10277,6 +10360,7 @@ pub fn run() {
             search_modrinth, get_modrinth_project, get_modrinth_versions,
             install_mod, install_resourcepack, install_modpack,
             get_minecraft_news,
+            fetch_partners_remote, get_server_status,
             get_skin_info, set_custom_skin,
             get_optimizer_status, apply_optimizer,
             check_updates, get_system_info,

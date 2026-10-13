@@ -21,6 +21,7 @@ import { PacksPage } from "./components/pages/PacksPage";
 import { ModpacksPage } from "./components/pages/ModpacksPage";
 import { LogsPage } from "./components/pages/LogsPage";
 import { ServersPage } from "./components/pages/ServersPage";
+import { PartnersPage } from "./components/pages/PartnersPage";
 import { TemplatesPage } from "./components/pages/TemplateBrowser";
 import { ConfigEditorPage } from "./components/pages/ConfigEditorPage";
 import { ChatPage } from "./components/pages/ChatPage";
@@ -123,7 +124,8 @@ function FloatingParticles({ themeColors }: { themeColors: any }) {
 
 function BackgroundLayer() {
   const { settings, themeColors } = useLauncherStore();
-  const bgType = settings.launcher_bg_type || "video";
+  const isLinux = typeof navigator !== "undefined" && /linux/i.test(navigator.userAgent || (navigator as any).platform || "");
+  const bgType = settings.launcher_bg_type || (isLinux ? "none" : "video");
   const bgImage = settings.launcher_bg_image || "";
   const bgVideo = settings.launcher_bg_video || "https://cdn.pixabay.com/video/2023/06/24/168653-839542456_large.mp4";
   const bgOpacity = settings.launcher_bg_opacity ?? 65;
@@ -363,6 +365,7 @@ function App() {
       case "accounts": return <AccountsPage />;
       case "xai": return <XrylothAIPage />;
       case "servers": return <ServersPage />;
+      case "partners": return <PartnersPage />;
       case "templates": return <TemplatesPage />;
       case "configeditor": return <ConfigEditorPage />;
       case "chat": return <ChatPage />;

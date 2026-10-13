@@ -309,6 +309,7 @@ export function SettingsPage() {
                     { value: "default", label: "Theme Default", icon: Paintbrush },
                     { value: "image", label: "Custom Image", icon: Image },
                     { value: "video", label: "Custom Video", icon: Film },
+                    { value: "none", label: "None (Fastest)", icon: X },
                   ] as const).map(({ value, label, icon: Icon }) => (
                     <button key={value} onClick={() => set("launcher_bg_type", value)}
                       className="flex-1 p-3 rounded-lg text-center transition-all"
