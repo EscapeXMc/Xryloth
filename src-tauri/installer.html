@@ -534,6 +534,15 @@
         let isInstalled = false;
         let confirmCallback = null;
 
+        // Hands-free flow state: the installer drives itself — check →
+        // auto-install/auto-update → launch the launcher → close itself.
+        //   enabled  — cleared the moment the user interacts while idle, so
+        //              manual controls (settings, uninstall) stay reachable;
+        //   busy     — an install/update is actually running (never aborted);
+        //   finishing— the launch-and-close handoff has started;
+        //   tries    — guards against re-scheduling a failing action forever.
+        const AUTO = { enabled: true, busy: false, finishing: false, tries: 0, updateTimer: null, tickTimer: null };
+
         // DOM Elements
         const elements = {
             currentVersion: document.getElementById('currentVersion'),
@@ -645,6 +654,7 @@
                         console.error('Failed to fetch release:', e);
                     }
                 }
+                scheduleAutoFlow();
             } catch (e) {
                 console.error('Status check failed:', e);
                 showToast('Failed to check installation status', 'error');
@@ -717,7 +727,106 @@
             elements.progressCard.classList.add('hidden');
         }
 
-        async function handleInstall() {
+        // ------------------------------------------------------------------
+        // Hands-free driver: called after every status check. Decides what the
+        // installer should do BY ITSELF next, so the user never has to press
+        // "Install"/"Update"/"Launch" manually.
+        // ------------------------------------------------------------------
+        function scheduleAutoFlow() {
+            if (!AUTO.enabled || AUTO.busy || AUTO.finishing) return;
+            clearAutoTimers();
+
+            if (!isInstalled) {
+                // Fresh system → install automatically (click anywhere to take over).
+                if (++AUTO.tries > 2) return;   // installing keeps failing — stay open
+                elements.subtitle.textContent = 'Installing automatically — click anywhere to manage manually';
+                AUTO.updateTimer = setTimeout(() => {
+                    AUTO.updateTimer = null;
+                    if (AUTO.enabled && !AUTO.busy) handleInstall(true);
+                }, 2000);
+                return;
+            }
+
+            if (!currentVersion || !latestVersion) return;   // status unknown → leave manual
+
+            if (currentVersion !== latestVersion) {
+                // Installed but outdated → update automatically, no button press.
+                if (++AUTO.tries > 2) {          // update keeps failing — stay open
+                    elements.subtitle.textContent = 'Automatic update failed — press "Update to Latest" to retry';
+                    return;
+                }
+                elements.subtitle.textContent = 'Update ' + latestVersion + ' available — updating automatically…';
+                AUTO.updateTimer = setTimeout(() => {
+                    AUTO.updateTimer = null;
+                    if (AUTO.enabled && !AUTO.busy) handleUpdate(true);
+                }, 1500);
+                return;
+            }
+
+            // Up to date → hand off to the launcher and close this window.
+            startFinishCountdown();
+        }
+
+        function clearAutoTimers() {
+            if (AUTO.updateTimer) { clearTimeout(AUTO.updateTimer); AUTO.updateTimer = null; }
+            if (AUTO.tickTimer) { clearInterval(AUTO.tickTimer); AUTO.tickTimer = null; }
+        }
+
+        // Any deliberate interaction while a step is only PENDING hands control
+        // back to the user (clicks during a running install/update are ignored
+        // so the download is never abandoned halfway).
+        function cancelPendingAuto() {
+            if (AUTO.busy) return;
+            if (AUTO.updateTimer || AUTO.finishing) {
+                AUTO.enabled = false;
+                AUTO.finishing = false;
+                clearAutoTimers();
+                elements.subtitle.textContent = isInstalled
+                    ? 'Xryloth is installed. Check for updates.'
+                    : 'Click Install to get started';
+            }
+        }
+
+        // Everything is (now) up to date → launch Xryloth, then close ourselves.
+        function startFinishCountdown() {
+            AUTO.finishing = true;
+            let n = 5;
+            elements.subtitle.textContent = 'Up to date — launching Xryloth in ' + n + 's (click anywhere to stay open)';
+            AUTO.tickTimer = setInterval(() => {
+                n -= 1;
+                if (n <= 0) {
+                    clearAutoTimers();
+                    finishAndExit();
+                } else {
+                    elements.subtitle.textContent = 'Up to date — launching Xryloth in ' + n + 's (click anywhere to stay open)';
+                }
+            }, 1000);
+        }
+
+        async function finishAndExit() {
+            if (!AUTO.finishing) return;
+            try {
+                elements.subtitle.textContent = 'Launching Xryloth…';
+                await invoke('installer_launch_launcher');
+                await new Promise((r) => setTimeout(r, 1500));
+                elements.subtitle.textContent = 'All done — closing installer';
+                await new Promise((r) => setTimeout(r, 800));
+                await invoke('installer_close_app');
+            } catch (e) {
+                // Launcher didn't start (missing file, no exec permission…):
+                // stay open with the error visible instead of silently closing.
+                AUTO.finishing = false;
+                surfaceError('Auto-launch failed', e);
+            }
+        }
+
+        // User took over: cancel whatever is still pending (not yet running).
+        window.addEventListener('pointerdown', cancelPendingAuto, true);
+        window.addEventListener('keydown', cancelPendingAuto, true);
+
+        async function handleInstall(auto = false) {
+            if (AUTO.busy) return;
+            AUTO.busy = true;
             saveConfig();
             const config = getConfig();
 
@@ -729,19 +838,25 @@
                 const result = await invoke('installer_install', { config });
 
                 showToast('Installation complete!', 'success');
-                await checkStatus();
+                AUTO.busy = false;
+                await checkStatus();   // auto mode → schedules launch + self-close
                 hideProgressCard();
             } catch (e) {
+                AUTO.busy = false;
+                AUTO.enabled = false;  // failed — stop auto-retrying, leave window open
                 elements.progressMessage.textContent = 'Failed: ' + e;
                 elements.progressMessage.style.color = 'var(--danger, #ef4444)';
                 showToast('Installation failed: ' + e, 'error');
             } finally {
+                AUTO.busy = false;
                 elements.installBtn.disabled = false;
                 elements.installBtnText.textContent = 'Install Xryloth';
             }
         }
 
-        async function handleUpdate() {
+        async function handleUpdate(auto = false) {
+            if (AUTO.busy) return;
+            AUTO.busy = true;
             saveConfig();
 
             elements.updateBtn.disabled = true;
@@ -751,13 +866,17 @@
             try {
                 const result = await invoke('installer_update');
                 showToast('Update complete!', 'success');
-                await checkStatus();
+                AUTO.busy = false;
+                await checkStatus();   // auto mode → schedules launch + self-close
                 hideProgressCard();
             } catch (e) {
+                AUTO.busy = false;
+                AUTO.enabled = false;  // failed — stop auto-retrying, leave window open
                 elements.progressMessage.textContent = 'Failed: ' + e;
                 elements.progressMessage.style.color = 'var(--danger, #ef4444)';
                 showToast('Update failed: ' + e, 'error');
             } finally {
+                AUTO.busy = false;
                 elements.updateBtn.disabled = false;
                 elements.updateBtn.innerHTML = '<svg><use href="#i-update"/></svg><span>Update to Latest</span>';
             }

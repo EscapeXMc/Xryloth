@@ -704,6 +704,32 @@ async fn installer_uninstall() -> Result<String, String> {
     Ok("Xryloth has been uninstalled. Thank you for being part of Xryloth!".to_string())
 }
 
+/// Launch the installed launcher, detached from the installer: the installer
+/// closes itself right after this returns, so the launcher must outlive it
+/// (std spawn does that on Linux and Windows — no process-group kill happens).
+#[tauri::command]
+async fn installer_launch_launcher() -> Result<(), String> {
+    let config = installer_get_config().await?;
+    if !config.launcher_path.exists() {
+        return Err(format!("Xryloth is not installed at {}", config.install_dir.display()));
+    }
+    Command::new(&config.launcher_path)
+        .current_dir(&config.install_dir)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .map_err(|e| format!("Failed to launch Xryloth: {}", e))?;
+    Ok(())
+}
+
+/// Close the installer after it has handed off to the launcher.
+#[tauri::command]
+async fn installer_close_app(app_handle: tauri::AppHandle) -> Result<(), String> {
+    app_handle.exit(0);
+    Ok(())
+}
+
 #[tauri::command]
 async fn installer_open_uninstall_page() -> Result<(), String> {
     #[cfg(target_os = "linux")]
@@ -732,6 +758,8 @@ fn main() {
             installer_update,
             installer_uninstall,
             installer_open_uninstall_page,
+            installer_launch_launcher,
+            installer_close_app,
         ])
         .setup(|app| {
             // Set up the installer window FIRST (see below for why).
