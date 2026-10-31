@@ -36,7 +36,7 @@ const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 // Release tags use the 4-part marketing version (e.g. v6.0.0.1) while Cargo
 // requires valid semver, so APP_VERSION stays 3-part. Update checks compare
 // against this so a same-release tag never looks "newer".
-const APP_DISPLAY_VERSION: &str = "6.0.0.9";
+const APP_DISPLAY_VERSION: &str = "6.0.0.20";
 const GITHUB_API_URL: &str = "https://api.github.com/repos/EscapeXMc/xryloth/releases/latest";
 const MOJANG_VERSION_MANIFEST: &str = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
 const FABRIC_VERSIONS_URL: &str = "https://meta.fabricmc.net/v2/versions/game";
@@ -759,7 +759,30 @@ fn save_setting_cmd(app: State<AppState>, key: String, value: Value) -> Value {
 // --- Instances ---
 #[tauri::command]
 fn get_instances(app: State<AppState>) -> Value {
-    Value::Array(load_instances_raw(&app))
+    let mut list = load_instances_raw(&app);
+    // Attach the per-profile JVM/RAM overrides so the UI (and the install
+    // validation checks) can show what a profile will actually launch with.
+    let overrides = load_json(&app_dir().join("instance_settings.json"));
+    if overrides.is_object() {
+        for inst in list.iter_mut() {
+            let name = match inst.get("name").and_then(|v| v.as_str()) {
+                Some(n) => n.to_string(),
+                None => continue,
+            };
+            if let Some(o) = overrides.get(&name) {
+                if let Some(ram) = o.get("ram_mb").and_then(|v| v.as_i64()) {
+                    if ram >= 512 { inst["ram_mb"] = json!(ram); }
+                }
+                if let Some(j) = o.get("jvm_args").and_then(|v| v.as_str()) {
+                    if !j.is_empty() { inst["jvm_args"] = json!(j); }
+                }
+                if let Some(jp) = o.get("java_path").and_then(|v| v.as_str()) {
+                    if !jp.is_empty() { inst["java_path"] = json!(jp); }
+                }
+            }
+        }
+    }
+    Value::Array(list)
 }
 
 #[tauri::command]
@@ -793,8 +816,9 @@ fn delete_instance(app: State<AppState>, name: String) -> Value {
     json!({"success": true})
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn install_instance(app_handle: tauri::AppHandle, instance_name: String, mc_version: String, loader: String, loader_version: String) -> Value {
+        tokio::task::block_in_place(|| {
     // Run the entire install on a background thread and return immediately,
     // so the launcher UI stays responsive (no "Not Responding") while files
     // download one-by-one sequentially.
@@ -1340,11 +1364,14 @@ fn install_instance(app_handle: tauri::AppHandle, instance_name: String, mc_vers
     }
     });
     json!({"status": "started", "instance": inst_name_ret})
-}
+
+        })
+    }
 
 // --- Minecraft Versions ---
-#[tauri::command]
+#[tauri::command(async)]
 fn get_minecraft_versions() -> Value {
+        tokio::task::block_in_place(|| {
     match http_get(MOJANG_VERSION_MANIFEST, None) {
         Ok(data) => {
             let all_versions: Vec<String> = data.get("versions")
@@ -1375,10 +1402,13 @@ fn get_minecraft_versions() -> Value {
         }
         Err(e) => json!({"error": e, "all_versions": [], "release_versions": [], "version_types": {}, "groups": {}, "latest": {}})
     }
-}
 
-#[tauri::command]
+        })
+    }
+
+#[tauri::command(async)]
 fn get_loader_versions(mc_version: String, loader: String) -> Value {
+        tokio::task::block_in_place(|| {
     if !loader_supports(&loader, &mc_version) {
         return Value::Array(vec![]);
     }
@@ -1481,7 +1511,9 @@ fn get_loader_versions(mc_version: String, loader: String) -> Value {
         }
         _ => Value::Array(vec![]),
     }
-}
+
+        })
+    }
 
 #[tauri::command]
 fn get_supported_loaders(mc_version: String) -> Value {
@@ -1492,8 +1524,9 @@ fn get_supported_loaders(mc_version: String) -> Value {
     json!(supported)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn get_fabric_versions() -> Value {
+        tokio::task::block_in_place(|| {
     match http_get(FABRIC_VERSIONS_URL, None) {
         Ok(data) => {
             if let Some(arr) = data.as_array() {
@@ -1508,11 +1541,14 @@ fn get_fabric_versions() -> Value {
         }
         Err(_) => Value::Array(vec![]),
     }
-}
+
+        })
+    }
 
 // --- Microsoft Auth ---
-#[tauri::command]
+#[tauri::command(async)]
 fn authenticate_microsoft(app: State<AppState>) -> Value {
+        tokio::task::block_in_place(|| {
     log_msg(&app, "[Auth/MS] Starting Microsoft device code flow...");
     // Clear any previous auth state
     {
@@ -1595,7 +1631,9 @@ fn authenticate_microsoft(app: State<AppState>) -> Value {
         }
         Err(e) => json!({"error": e}),
     }
-}
+
+        })
+    }
 
 #[tauri::command]
 fn poll_microsoft_status(app: State<AppState>) -> Value {
@@ -1719,8 +1757,9 @@ fn authenticate_elyby(app: State<AppState>) -> Value {
     json!({"auth_url": auth_url})
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn poll_elyby_auth(app: State<AppState>) -> Value {
+        tokio::task::block_in_place(|| {
     log_msg(&app, "[Auth/Ely.by] Polling for auth code...");
     for _ in 0..120 {
         std::thread::sleep(std::time::Duration::from_secs(2));
@@ -1734,7 +1773,9 @@ fn poll_elyby_auth(app: State<AppState>) -> Value {
         }
     }
     json!({"error": "Timed out waiting for Ely.by login"})
-}
+
+        })
+    }
 
 fn exchange_elyby_code(app: State<AppState>, code: String) -> Value {
     log_msg(&app, "[Auth/Ely.by] Exchanging code for token...");
@@ -1784,10 +1825,13 @@ fn exchange_elyby_code(app: State<AppState>, code: String) -> Value {
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn complete_elyby_auth_cmd(app: State<AppState>, code: String) -> Value {
+        tokio::task::block_in_place(|| {
     exchange_elyby_code(app, code)
-}
+
+        })
+    }
 
 #[tauri::command]
 fn create_offline_account(app: State<AppState>, username: String) -> Value {
@@ -1832,8 +1876,9 @@ fn ensure_authlib_injector_bg() {
     let _ = download_authlib_injector(&path);
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn ensure_authlib_injector() -> Value {
+        tokio::task::block_in_place(|| {
     let path = authlib_injector_path();
     if path.exists() {
         return json!({"success": true, "path": path.to_string_lossy()});
@@ -1842,11 +1887,14 @@ fn ensure_authlib_injector() -> Value {
         Ok(()) => json!({"success": true, "path": path.to_string_lossy()}),
         Err(e) => json!({"error": e}),
     }
-}
+
+        })
+    }
 
 // --- Game Launch ---
-#[tauri::command]
+#[tauri::command(async)]
 fn launch_game(app: State<AppState>, app_handle: tauri::AppHandle, instance_name: String) -> Value {
+        tokio::task::block_in_place(|| {
     log_msg(&app, &format!("[Launch] Preparing '{}'...", instance_name));
 
     let instances = load_instances_raw(&app);
@@ -1870,8 +1918,17 @@ fn launch_game(app: State<AppState>, app_handle: tauri::AppHandle, instance_name
 
     // Find Java - with auto-detection and auto-download
     let settings = load_settings(&app);
+
+    // Per-instance overrides (JVM & RAM settings) live in instance_settings.json
+    // keyed by instance name. Missing file/entry simply means "use global settings".
+    let inst_overrides_raw = load_json(&app_dir().join("instance_settings.json"));
+    let inst_over = inst_overrides_raw.get(&instance_name).cloned().unwrap_or_else(|| json!({}));
+
     let required_java = get_required_java_for_mc(mc_version);
-    let custom_java = settings.get("java_path").and_then(|v| v.as_str()).unwrap_or("");
+    // Per-instance Java beats the launcher-wide Java path.
+    let inst_java = inst_over.get("java_path").and_then(|v| v.as_str()).unwrap_or("");
+    let custom_java_fallback = settings.get("java_path").and_then(|v| v.as_str()).unwrap_or("");
+    let custom_java: &str = if !inst_java.is_empty() { inst_java } else { custom_java_fallback };
     let host_arch = get_host_arch();
 
     // Step 1: Check if custom path works
@@ -2069,8 +2126,11 @@ fn launch_game(app: State<AppState>, app_handle: tauri::AppHandle, instance_name
     }
     log_msg(&app, &format!("[Launch] Classpath built: {} entries", classpath.len()));
 
-    // JVM Args
-    let ram_mb = settings.get("ram_mb").and_then(|v| v.as_i64()).unwrap_or(2048);
+    // JVM Args — per-instance RAM override wins over the global launcher value.
+    let ram_mb = inst_over.get("ram_mb").and_then(|v| v.as_i64())
+        .filter(|v| *v >= 512) // 0 / unset means "inherit global"
+        .or_else(|| settings.get("ram_mb").and_then(|v| v.as_i64()))
+        .unwrap_or(2048);
     let min_heap = std::cmp::min(512, ram_mb);
     let mut jvm_args: Vec<String> = vec![
         format!("-Xmx{}M", ram_mb),
@@ -2106,10 +2166,19 @@ fn launch_game(app: State<AppState>, app_handle: tauri::AppHandle, instance_name
     }
     log_msg(&app, "[Launch] Authlib-injector setup done");
 
-    // Custom JVM args
+    // Custom JVM args — global flags first, then this profile's own extra flags.
     let global_jvm = settings.get("global_jvm").and_then(|v| v.as_str()).unwrap_or("");
     let custom_args: Vec<&str> = global_jvm.split_whitespace().collect();
     jvm_args.extend(custom_args.iter().map(|s| s.to_string()));
+
+    let inst_jvm = inst_over.get("jvm_args").and_then(|v| v.as_str()).unwrap_or("");
+    if !inst_jvm.is_empty() {
+        jvm_args.extend(inst_jvm.split_whitespace().map(|s| s.to_string()));
+        log_msg(&app, &format!("[Launch] Applying {} custom JVM flag(s) for '{}'", inst_jvm.split_whitespace().count(), instance_name));
+    }
+    if inst_over.get("ram_mb").and_then(|v| v.as_i64()).is_some() {
+        log_msg(&app, &format!("[Launch] Per-instance RAM override: {} MB", ram_mb));
+    }
 
     // Auth selection — prefer the active account from the accounts list
     // (managed on the frontend), falling back to legacy single-account settings.
@@ -2385,7 +2454,9 @@ fn launch_game(app: State<AppState>, app_handle: tauri::AppHandle, instance_name
     });
 
     json!({"success": true, "message": "Game process started"})
-}
+
+        })
+    }
 
 fn which_java() -> String {
     let cmd_name = if cfg!(target_os = "windows") { "java.exe" } else { "java" };
@@ -2544,8 +2615,9 @@ fn setup_custom_skin_loader(inst_name: &str, settings: &HashMap<String, Value>) 
 }
 
 // --- Modrinth ---
-#[tauri::command]
+#[tauri::command(async)]
 fn search_modrinth(query: String, project_type: Option<String>, loader: Option<String>, mc_version: Option<String>, limit: Option<u32>) -> Value {
+        tokio::task::block_in_place(|| {
     let ptype = project_type.unwrap_or_else(|| "mod".to_string());
     let mut facets: Vec<Vec<String>> = vec![vec![format!("project_type:{}", ptype)]];
     if let Some(ref l) = loader {
@@ -2570,15 +2642,21 @@ fn search_modrinth(query: String, project_type: Option<String>, loader: Option<S
         }
         Err(_) => Value::Array(vec![]),
     }
-}
 
-#[tauri::command]
+        })
+    }
+
+#[tauri::command(async)]
 fn get_modrinth_project(slug: String) -> Value {
+        tokio::task::block_in_place(|| {
     http_get(&format!("{}/project/{}", MODRINTH_API, slug), None).unwrap_or(Value::Null)
-}
 
-#[tauri::command]
+        })
+    }
+
+#[tauri::command(async)]
 fn get_modrinth_versions(slug: String, loader: Option<String>, mc_version: Option<String>) -> Value {
+        tokio::task::block_in_place(|| {
     let mut params = Vec::new();
     if let Some(ref l) = loader {
         if !l.is_empty() {
@@ -2596,35 +2674,44 @@ fn get_modrinth_versions(slug: String, loader: Option<String>, mc_version: Optio
         format!("{}/project/{}/version?{}", MODRINTH_API, slug, params.join("&"))
     };
     http_get(&url, None).unwrap_or(Value::Array(vec![]))
-}
 
-#[tauri::command]
-fn install_mod(app: State<AppState>, instance_name: String, slug: String, version_id: Option<String>) -> Value {
-    log_msg(&app, &format!("[Mod] Installing mod '{}' to '{}'...", slug, instance_name));
-    let mods_dir = instances_dir().join(&instance_name).join("mods");
-    let _ = std::fs::create_dir_all(&mods_dir);
+        })
+    }
+
+/// Core install logic shared by `install_mod` (async wrapper) and `batch_install_mods`.
+fn install_mod_inner(app: &State<AppState>, instance_name: &str, slug: &str, version_id: Option<&str>) -> Value {
+    log_msg(app, &format!("[Mod] Installing mod '{}' to '{}'...", slug, instance_name));
+    let mods_dir = instances_dir().join(instance_name).join("mods");
+    match std::fs::create_dir_all(&mods_dir) {
+        Ok(()) => {}
+        Err(e) => {
+            let err = format!("Failed to create mods directory: {}", e);
+            log_msg(app, &format!("[Mod/ERROR] {}", err));
+            return json!({"success": false, "error": err});
+        }
+    }
 
     // Resolve the instance's MC version + loader so we can pick a compatible build.
-    let instances = load_instances_raw(&app);
-    let inst = instances.iter().find(|i| i.get("name").and_then(|n| n.as_str()) == Some(instance_name.as_str()));
+    let instances = load_instances_raw(app);
+    let inst = instances.iter().find(|i| i.get("name").and_then(|n| n.as_str()) == Some(instance_name));
     let mc_ver = inst.and_then(|i| i.get("version")).and_then(|v| v.as_str()).unwrap_or("").to_string();
     let loader = inst.and_then(|i| i.get("loader")).and_then(|v| v.as_str()).unwrap_or("").to_string();
     let loader_opt = if loader.is_empty() || loader == "vanilla" { None } else { Some(loader.clone()) };
 
-    let mut versions = get_modrinth_versions(slug.clone(), loader_opt.clone(), if mc_ver.is_empty() { None } else { Some(mc_ver.clone()) });
+    let mut versions = get_modrinth_versions(slug.to_string(), loader_opt.clone(), if mc_ver.is_empty() { None } else { Some(mc_ver.clone()) });
     let mut versions_arr = versions.as_array().cloned().unwrap_or_default();
     if versions_arr.is_empty() {
         // No build matches this instance version/loader -> fall back to all versions.
-        versions = get_modrinth_versions(slug.clone(), None, None);
+        versions = get_modrinth_versions(slug.to_string(), None, None);
         versions_arr = versions.as_array().cloned().unwrap_or_default();
     }
     if versions_arr.is_empty() {
-        return json!({"error": "No versions found"});
+        return json!({"success": false, "error": "No versions found for this instance version/loader"});
     }
 
     let target_version = if let Some(ref vid) = version_id {
         if !vid.is_empty() {
-            versions_arr.iter().find(|v| v.get("id").and_then(|i| i.as_str()) == Some(vid.as_str())).unwrap_or(&versions_arr[0])
+            versions_arr.iter().find(|v| v.get("id").and_then(|i| i.as_str()) == Some(vid)).unwrap_or(&versions_arr[0])
         } else {
             &versions_arr[0]
         }
@@ -2638,21 +2725,38 @@ fn install_mod(app: State<AppState>, instance_name: String, slug: String, versio
     let download_url = primary.get("url").and_then(|u| u.as_str()).unwrap_or("");
 
     if download_url.is_empty() {
-        return json!({"error": "No download URL"});
+        return json!({"success": false, "error": "No download URL for this version"});
     }
 
     let dest = mods_dir.join(filename);
     match download_file_blocking(download_url, &dest) {
         Ok(()) => {
-            log_msg(&app, &format!("[Mod/OK] '{}' installed!", filename));
+            log_msg(app, &format!("[Mod/OK] '{}' installed!", filename));
             json!({"success": true, "filename": filename})
         }
-        Err(e) => json!({"error": e}),
+        Err(e) => {
+            let err = format!("Download failed: {}", e);
+            log_msg(app, &format!("[Mod/ERROR] {}", err));
+            json!({"success": false, "error": err})
+        }
     }
 }
 
 #[tauri::command]
+async fn install_mod(app_handle: tauri::AppHandle, instance_name: String, slug: String, version_id: Option<String>) -> Value {
+    let handle = app_handle.clone();
+    let inst_name = instance_name.clone();
+    let slug_c = slug.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        let app = handle.state::<AppState>();
+        install_mod_inner(&app, &inst_name, &slug_c, version_id.as_deref())
+    }).await;
+    result.unwrap_or_else(|_| json!({"success": false, "error": "Install task panicked"}))
+}
+
+#[tauri::command(async)]
 fn install_resourcepack(app: State<AppState>, instance_name: String, slug: String, version_id: Option<String>) -> Value {
+        tokio::task::block_in_place(|| {
     log_msg(&app, &format!("[ResourcePack] Installing '{}' to '{}'...", slug, instance_name));
     let rp_dir = instances_dir().join(&instance_name).join("resourcepacks");
     let _ = std::fs::create_dir_all(&rp_dir);
@@ -2682,7 +2786,9 @@ fn install_resourcepack(app: State<AppState>, instance_name: String, slug: Strin
         }
         Err(e) => json!({"error": e}),
     }
-}
+
+        })
+    }
 
 #[tauri::command]
 async fn install_modpack(app_handle: tauri::AppHandle, instance_name: String, slug: String, version_id: Option<String>) -> Value {
@@ -2771,12 +2877,13 @@ async fn install_modpack(app_handle: tauri::AppHandle, instance_name: String, sl
         log_msg(&app, &format!("[Modpack/OK] '{}' installed successfully!", filename));
         json!({"success": true})
     }).await;
-    result.unwrap_or_else(|_| json!({"error": "Modpack install task failed"}))
+    result.unwrap_or_else(|_| json!({"success": false, "error": "Modpack install task failed"}))
 }
 
 // --- News ---
-#[tauri::command]
+#[tauri::command(async)]
 fn get_minecraft_news() -> Value {
+        tokio::task::block_in_place(|| {
     match http_get(MOJANG_VERSION_MANIFEST, None) {
         Ok(data) => {
             let mut news = Vec::new();
@@ -2802,7 +2909,9 @@ fn get_minecraft_news() -> Value {
         }
         Err(_) => Value::Array(vec![]),
     }
-}
+
+        })
+    }
 
 /// Fetch partner servers directly from Firebase Realtime Database.
 /// Uses Rust-side HTTP (no CORS/WebView sandbox restrictions), so it works in
@@ -2810,8 +2919,9 @@ fn get_minecraft_news() -> Value {
 const PARTNERS_FIREBASE_URL: &str =
     "https://xryloth-mc-default-rtdb.firebaseio.com/partnerServers.json";
 
-#[tauri::command]
+#[tauri::command(async)]
 fn fetch_partners_remote() -> Value {
+        tokio::task::block_in_place(|| {
     match http_get(PARTNERS_FIREBASE_URL, None) {
         Ok(Value::Object(map)) => {
             let mut arr: Vec<Value> = Vec::new();
@@ -2831,40 +2941,86 @@ fn fetch_partners_remote() -> Value {
             Value::Array(vec![])
         }
     }
-}
+
+        })
+    }
 
 /// Fetch live Minecraft server status for a partner server IP:port.
 /// Uses the public mcsrvstat.us API (no auth, no CORS from Rust).
-#[tauri::command]
+#[tauri::command(async)]
 fn get_server_status(host: String, port: String) -> Value {
+        tokio::task::block_in_place(|| {
     let safe_host = host.trim().trim_end_matches('/').to_string();
     if safe_host.is_empty() {
         return json!({"online": false, "host": "", "port": port, "error": "empty host"});
     }
-    let url = if port.trim().is_empty() || port.trim() == "25565" {
-        format!("https://api.mcsrvstat.us/3/{}", safe_host)
+    let safe_port = port.trim();
+
+    // If the host already contains a port (e.g. "power-1.mantranodes.fun:25572"),
+    // use it as-is — never double-append the port.
+    let host_has_port = safe_host.contains(':');
+
+    // Build candidate URLs to try in order.
+    // 1. If host already has a port, just use it as-is.
+    // 2. If host has no port: first try bare host (default 25565 / SRV record),
+    //    then try host:port if a custom port was provided.
+    let mut candidates: Vec<String> = Vec::new();
+    if host_has_port {
+        candidates.push(format!("https://api.mcsrvstat.us/3/{}", safe_host));
     } else {
-        format!("https://api.mcsrvstat.us/3/{}:{}", safe_host, port.trim())
-    };
-    match http_get(&url, None) {
-        Ok(v) => {
-            let online = v.get("online").and_then(|o| o.as_bool()).unwrap_or(false);
-            eprintln!("[Partners] status {} -> online={} ({})", url, online, v.get("version").and_then(|x| x.as_str()).unwrap_or("?"));
-            json!({
-            "online": v.get("online").and_then(|o| o.as_bool()).unwrap_or(false),
-            "host": safe_host,
-            "port": port.trim(),
-            "version": v.get("version").and_then(|x| x.as_str()).unwrap_or(""),
-            "players_online": v.get("players").and_then(|p| p.get("online")).and_then(|x| x.as_u64()).unwrap_or(0),
-            "players_max": v.get("players").and_then(|p| p.get("max")).and_then(|x| x.as_u64()).unwrap_or(0),
-            "motd": v.get("motd").and_then(|m| m.get("clean")).and_then(|c| c.as_array()).and_then(|a| a.first()).and_then(|s| s.as_str()).unwrap_or(""),
-            "icon": v.get("icon").and_then(|i| i.as_str()).unwrap_or(""),
-            "latency": v.get("debug").and_then(|d| d.get("cacheexpire")).and_then(|x| x.as_u64()).unwrap_or(0),
-        })
+        // First try bare host (lets mcsrvstat resolve SRV records / default port).
+        candidates.push(format!("https://api.mcsrvstat.us/3/{}", safe_host));
+        // If a custom port was provided, also try host:port as fallback.
+        if !safe_port.is_empty() && safe_port != "25565" {
+            candidates.push(format!("https://api.mcsrvstat.us/3/{}:{}", safe_host, safe_port));
         }
-        Err(e) => json!({"online": false, "host": safe_host, "port": port.trim(), "error": e}),
     }
-}
+
+    let mut last_err = String::new();
+    for url in &candidates {
+        match http_get(url, None) {
+            Ok(v) => {
+                let online = v.get("online").and_then(|o| o.as_bool()).unwrap_or(false);
+                eprintln!("[Partners] status {} -> online={} ({})", url, online, v.get("version").and_then(|x| x.as_str()).unwrap_or("?"));
+                // If this attempt returned online, use it immediately.
+                if online {
+                    return json!({
+                        "online": true,
+                        "host": safe_host,
+                        "port": safe_port,
+                        "version": v.get("version").and_then(|x| x.as_str()).unwrap_or(""),
+                        "players_online": v.get("players").and_then(|p| p.get("online")).and_then(|x| x.as_u64()).unwrap_or(0),
+                        "players_max": v.get("players").and_then(|p| p.get("max")).and_then(|x| x.as_u64()).unwrap_or(0),
+                        "motd": v.get("motd").and_then(|m| m.get("clean")).and_then(|c| c.as_array()).and_then(|a| a.first()).and_then(|s| s.as_str()).unwrap_or(""),
+                        "icon": v.get("icon").and_then(|i| i.as_str()).unwrap_or(""),
+                        "latency": v.get("debug").and_then(|d| d.get("cacheexpire")).and_then(|x| x.as_u64()).unwrap_or(0),
+                    });
+                }
+                // Offline on this candidate — remember the result but try the next candidate.
+                last_err = String::new();
+                // Store this offline response so we can return it if all candidates fail.
+                return json!({
+                    "online": false,
+                    "host": safe_host,
+                    "port": safe_port,
+                    "version": "",
+                    "players_online": 0,
+                    "players_max": 0,
+                    "motd": "",
+                    "icon": "",
+                    "latency": 0,
+                });
+            }
+            Err(e) => {
+                last_err = e;
+                eprintln!("[Partners] status {} -> error: {}", url, last_err);
+            }
+        }
+    }
+    json!({"online": false, "host": safe_host, "port": safe_port, "error": last_err})
+
+        })
+    }
 
 // --- Skin Manager ---
 #[tauri::command]
@@ -2969,7 +3125,12 @@ fn asset_score(name: &str) -> i32 {
     if cfg!(target_os = "windows") {
         if n.ends_with(".exe") {
             if n.contains("setup") || n.contains("install") { return 100; }
-            // Raw portable launcher: must be applied by the installer, not here.
+            // Release assets are named xryloth_v*_Windows64/Windows32.exe — accept
+            // the one matching this build's architecture (the other one is skipped,
+            // and unrecognised exes stay rejected as portable-only).
+            let is64 = matches!(std::env::consts::ARCH, "x86_64");
+            if is64 && (n.contains("windows64") || n.contains("win64")) { return 100; }
+            if !is64 && (n.contains("windows32") || n.contains("win32")) { return 100; }
             return -1;
         }
         if n.ends_with(".msi") { return 90; }
@@ -3004,14 +3165,25 @@ fn pick_release_asset(assets: &[Value]) -> Option<(String, String, u64)> {
 }
 
 // Extract a comparable version from a GitHub release. The maintainer names the
-// release *title* as the version, so prefer `name` and fall back to `tag_name`.
+// release *title* as the version (e.g. "Xryloth v6.0.0.20"), so pull the dotted
+// number out of whichever field is present rather than comparing raw text — a
+// leading product name would otherwise swallow the first version component.
 fn release_version(data: &Value) -> String {
     let raw = data.get("name").and_then(|n| n.as_str())
         .filter(|s| !s.trim().is_empty())
         .or_else(|| data.get("tag_name").and_then(|t| t.as_str()))
         .unwrap_or("")
         .trim();
-    raw.trim_start_matches(|c| c == 'v' || c == 'V').trim().to_string()
+    let raw = raw.trim_start_matches(|c| c == 'v' || c == 'V').trim();
+    match raw.find(|c: char| c.is_ascii_digit()) {
+        Some(pos) => raw[pos..]
+            .chars()
+            .take_while(|c| c.is_ascii_digit() || *c == '.')
+            .collect::<String>()
+            .trim_end_matches('.')
+            .to_string(),
+        None => raw.to_string(),
+    }
 }
 
 // Fetch the latest GitHub release and describe any available update.
@@ -3051,10 +3223,13 @@ fn release_info() -> Value {
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn check_updates() -> Value {
+        tokio::task::block_in_place(|| {
     release_info()
-}
+
+        })
+    }
 
 // --- System Info ---
 #[tauri::command]
@@ -3291,6 +3466,124 @@ fn open_instance_folder(instance_name: String) -> Value {
     }
 }
 
+/// Opens a sub-folder inside an instance (mods, screenshots, config, ...)
+/// using the native file explorer. Creates the folder when it doesn't exist yet
+/// so "Open screenshots" never silently fails on a fresh profile.
+#[tauri::command]
+fn open_instance_path(instance_name: String, sub_folder: String) -> Value {
+    let sub = sub_folder.trim().trim_matches('/');
+    if sub.is_empty() || sub.contains("..") || sub.starts_with('/') {
+        return json!({"error": "Invalid folder path"});
+    }
+    let base = instances_dir().join(&instance_name);
+    if !base.exists() {
+        return json!({"error": "Instance folder not found"});
+    }
+    let dir = base.join(sub);
+    if let Err(e) = std::fs::create_dir_all(&dir) {
+        return json!({"error": format!("Could not create folder: {}", e)});
+    }
+    let _ = webbrowser::open(&dir.to_string_lossy());
+    json!({"success": true, "path": dir.to_string_lossy()})
+}
+
+/// Returns the per-instance JVM / RAM overrides (empty object when none set).
+#[tauri::command]
+fn get_instance_settings(instance_name: String) -> Value {
+    let p = app_dir().join("instance_settings.json");
+    let data = load_json(&p);
+    let entry = data.get(&instance_name).cloned().unwrap_or_else(|| json!({}));
+    json!({
+        "success": true,
+        "instance_name": instance_name,
+        "ram_mb": entry.get("ram_mb").and_then(|v| v.as_i64()).unwrap_or(0),
+        "jvm_args": entry.get("jvm_args").and_then(|v| v.as_str()).unwrap_or(""),
+        "java_path": entry.get("java_path").and_then(|v| v.as_str()).unwrap_or(""),
+    })
+}
+
+/// Saves per-instance JVM / RAM overrides. Values are merged into the existing
+/// entry so other per-profile keys are never wiped.
+#[tauri::command]
+fn save_instance_settings(
+    app: State<AppState>,
+    instance_name: String,
+    ram_mb: i64,
+    jvm_args: String,
+    java_path: String,
+) -> Value {
+    if instance_name.trim().is_empty() {
+        return json!({"error": "Instance name is required"});
+    }
+    // 0 means "inherit the launcher-wide RAM setting" — anything else must be sane.
+    if ram_mb != 0 && (ram_mb < 512 || ram_mb > 65536) {
+        return json!({"error": "RAM must be between 512 MB and 65536 MB"});
+    }
+    let p = app_dir().join("instance_settings.json");
+    let mut data = load_json(&p);
+    if !data.is_object() { data = json!({}); }
+    let mut entry = data.get(&instance_name)
+        .and_then(|v| v.as_object())
+        .cloned()
+        .unwrap_or_default();
+    entry.insert("ram_mb".to_string(), json!(ram_mb));
+    entry.insert("jvm_args".to_string(), json!(jvm_args.trim()));
+    entry.insert("java_path".to_string(), json!(java_path.trim()));
+    data[&instance_name] = Value::Object(entry);
+    save_json(&p, &data);
+    log_msg(&app, &format!("[Instance] Saved JVM settings for '{}' ({} MB)", instance_name, ram_mb));
+    json!({"success": true})
+}
+
+/// Clears temporary files of a profile (logs, crash reports, caches).
+/// Mods, worlds, configs and saves are never touched.
+#[tauri::command]
+fn clear_instance_cache(app: State<AppState>, instance_name: String) -> Value {
+    let dir = instances_dir().join(&instance_name);
+    if !dir.exists() {
+        return json!({"error": "Instance folder not found"});
+    }
+    let mut removed: Vec<String> = Vec::new();
+    let mut freed: u64 = 0;
+
+    // Directory targets — removed wholesale.
+    for target in ["logs", "crash-reports", "cache", "caches", ".cache", "xryloth_tmp"] {
+        let p = dir.join(target);
+        if p.exists() {
+            if let Ok(meta) = fs_dir_size(&p) { freed += meta; }
+            let _ = std::fs::remove_dir_all(&p);
+            removed.push(target.to_string());
+        }
+    }
+    // Loose log files in the instance root.
+    if let Ok(entries) = std::fs::read_dir(&dir) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            let lower = name.to_lowercase();
+            if (lower.ends_with(".log") || lower.ends_with(".log.gz") || lower == "latest.log.old")
+                && entry.path().is_file()
+            {
+                if let Ok(m) = entry.metadata() { freed += m.len(); }
+                let _ = std::fs::remove_file(entry.path());
+                removed.push(name);
+            }
+        }
+    }
+    log_msg(&app, &format!("[Instance] Cleared cache for '{}' ({} items, {} KB)", instance_name, removed.len(), freed / 1024));
+    json!({"success": true, "removed": removed, "freed_bytes": freed})
+}
+
+fn fs_dir_size(path: &Path) -> std::io::Result<u64> {
+    let mut total = 0u64;
+    if path.is_file() { return path.metadata().map(|m| m.len()); }
+    for entry in std::fs::read_dir(path)? {
+        let entry = entry?;
+        let p = entry.path();
+        total += if p.is_dir() { fs_dir_size(&p).unwrap_or(0) } else { entry.metadata().map(|m| m.len()).unwrap_or(0) };
+    }
+    Ok(total)
+}
+
 #[tauri::command]
 fn get_instance_mods(instance_name: String) -> Value {
     let mods_dir = instances_dir().join(&instance_name).join("mods");
@@ -3368,12 +3661,68 @@ fn rename_instance(app: State<AppState>, old_name: String, new_name: String) -> 
     }
 }
 
+/// Renames and/or retargets a profile (Minecraft version + loader).
+/// Folder rename happens first so the install step that follows uses the new name.
+#[tauri::command]
+fn edit_instance(
+    app: State<AppState>,
+    instance_name: String,
+    new_name: String,
+    mc_version: String,
+    loader: String,
+    loader_version: String,
+) -> Value {
+    let new_name = new_name.trim().to_string();
+    if new_name.is_empty() { return json!({"error": "Profile name cannot be empty"}); }
+    if new_name.contains('/') || new_name.contains('\\') || new_name.contains("..") {
+        return json!({"error": "Profile name contains invalid characters"}); 
+    }
+    let mut instances = load_instances_raw(&app);
+    let idx = match instances.iter().position(|i| i.get("name").and_then(|v| v.as_str()) == Some(&instance_name)) {
+        Some(i) => i,
+        None => return json!({"error": "Instance not found"}),
+    };
+    let renamed = new_name != instance_name;
+    if renamed {
+        let old_dir = instances_dir().join(&instance_name);
+        let new_dir = instances_dir().join(&new_name);
+        if new_dir.exists() { return json!({"error": "An instance with that name already exists"}); }
+        if old_dir.exists() {
+            if let Err(e) = std::fs::rename(&old_dir, &new_dir) {
+                return json!({"error": format!("Could not rename profile folder: {}", e)});
+            }
+        }
+        // Carry the per-profile JVM/RAM overrides over to the new key.
+        let sp = app_dir().join("instance_settings.json");
+        let mut sd = load_json(&sp);
+        if sd.is_object() {
+            if let Some(entry) = sd.as_object_mut().and_then(|o| o.remove(&instance_name)) {
+                sd.as_object_mut().unwrap().insert(new_name.clone(), entry);
+                save_json(&sp, &sd);
+            }
+        }
+    }
+    let entry = &mut instances[idx];
+    entry["name"] = json!(new_name);
+    entry["version"] = json!(mc_version);
+    entry["loader"] = json!(loader);
+    entry["loader_version"] = json!(loader_version);
+    save_instances(&instances);
+    log_msg(&app, &format!("[Instance] Updated '{}' -> '{}' ({} {})", instance_name, new_name, loader, mc_version));
+    json!({"success": true, "name": new_name, "renamed": renamed})
+}
+
 #[tauri::command]
 fn set_instance_icon(instance_name: String, icon_data: String) -> Value {
     let inst_dir = instances_dir().join(&instance_name);
+    if !inst_dir.exists() {
+        return json!({"error": "Profile folder not found — install the profile first"});
+    }
     let icon_path = inst_dir.join("icon.png");
     if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(icon_data.trim_start_matches("data:image/png;base64,")) {
-        let _ = std::fs::write(&icon_path, &bytes);
+        if std::fs::write(&icon_path, &bytes).is_err() {
+            return json!({"error": "Could not write the icon file"});
+        }
         json!({"success": true, "path": icon_path.to_string_lossy()})
     } else {
         json!({"error": "Invalid base64 data"})
@@ -3899,8 +4248,9 @@ async fn apply_instance_template(app_handle: tauri::AppHandle, instance_name: St
     result.unwrap_or_else(|_| json!({"success": false, "error": "Template apply task failed", "installed": 0, "errors": 0, "template_name": template_id}))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn get_minecraft_news_enhanced() -> Value {
+        tokio::task::block_in_place(|| {
     match http_get("https://www.minecraft.net/en-us/articles/rss", None) {
         Ok(data) => {
             let mut news = Vec::new();
@@ -3977,11 +4327,14 @@ fn get_minecraft_news_enhanced() -> Value {
             Value::Array(news)
         }
     }
-}
+
+        })
+    }
 
 // --- Version ---
-#[tauri::command]
+#[tauri::command(async)]
 fn get_latest_release_tag() -> Value {
+        tokio::task::block_in_place(|| {
     match http_get(GITHUB_API_URL, None) {
         Ok(data) => {
             let tag = match release_version(&data) {
@@ -4000,7 +4353,9 @@ fn get_latest_release_tag() -> Value {
         }
         Err(_) => json!({"tag": APP_VERSION, "current_version": APP_DISPLAY_VERSION, "current_arch": APP_ARCH, "notes": "", "published_at": ""}),
     }
-}
+
+        })
+    }
 
 // ==================== BACKGROUND IMAGE FILE ====================
 #[tauri::command]
@@ -4083,8 +4438,9 @@ fn delete_background_video() -> Value {
 }
 
 // ==================== DISCORD RPC ====================
-#[tauri::command]
+#[tauri::command(async)]
 fn init_discord_rpc(app: tauri::AppHandle) -> Value {
+        tokio::task::block_in_place(|| {
     let state = app.state::<AppState>();
 
     let discord_rpc_enabled = {
@@ -4287,9 +4643,11 @@ fn init_discord_rpc(app: tauri::AppHandle) -> Value {
     });
 
     json!({"success": true, "message": "Discord RPC started"})
-}
 
-#[tauri::command]
+        })
+    }
+
+#[tauri::command(async)]
 fn update_discord_rpc(
     app: State<AppState>,
     details: String,
@@ -4299,6 +4657,7 @@ fn update_discord_rpc(
     small_image: String,
     small_text: String,
 ) -> Value {
+        tokio::task::block_in_place(|| {
     let handle = app.discord_handle.lock().unwrap();
     if let Some(h) = handle.as_ref() {
         let _ = h.sender.send(DiscordMessage::Update {
@@ -4313,26 +4672,34 @@ fn update_discord_rpc(
     } else {
         json!({"success": false, "message": "Discord RPC not initialized"})
     }
-}
 
-#[tauri::command]
+        })
+    }
+
+#[tauri::command(async)]
 fn stop_discord_rpc(app: State<AppState>) -> Value {
+        tokio::task::block_in_place(|| {
     let handle = app.discord_handle.lock().unwrap().take();
     if let Some(h) = handle {
         let _ = h.sender.send(DiscordMessage::Stop);
     }
     json!({"success": true})
-}
 
-#[tauri::command]
+        })
+    }
+
+#[tauri::command(async)]
 fn get_discord_status(app: State<AppState>) -> Value {
+        tokio::task::block_in_place(|| {
     let connected = app.discord_handle.lock().unwrap().is_some();
     let enabled = {
         let ds = load_json(&settings_file());
         ds.get("discord_rpc").and_then(|v| v.as_bool()).unwrap_or(true)
     };
     json!({"connected": connected, "enabled": enabled, "client_id": "1557369457397997618"})
-}
+
+        })
+    }
 
 #[tauri::command]
 fn open_url(url: String) -> Value {
@@ -4525,8 +4892,9 @@ fn install_perf_mod(
 
 /// Auto-installs the curated FPS/optimisation mod stack for a modded instance.
 /// Runs after any Fabric/Quilt/Forge/NeoForge instance is created & installed.
-#[tauri::command]
+#[tauri::command(async)]
 fn install_performance_mods(app: State<AppState>, instance_name: String, mc_version: String, loader: String) -> Value {
+        tokio::task::block_in_place(|| {
     log_msg(&app, &format!("[PerfMods] Auto-installing FPS mods for '{}' ({} {})...", instance_name, loader, mc_version));
 
     let mods_dir = instances_dir().join(&instance_name).join("mods");
@@ -4623,13 +4991,16 @@ fn install_performance_mods(app: State<AppState>, instance_name: String, mc_vers
         "errors": failed,
         "message": format!("Installed {} FPS mods ({} unsupported for this version were skipped)", installed, skipped)
     })
-}
+
+        })
+    }
 
 // ==================== PUBLIC IP (for public server listing) ====================
 /// Resolve this machine's public IP so a user's public server can be listed
 /// with a joinable address for the website server list.
-#[tauri::command]
+#[tauri::command(async)]
 fn get_public_ip() -> Value {
+        tokio::task::block_in_place(|| {
     // JSON endpoint first (parses cleanly with our HTTP helper).
     if let Ok(v) = http_get("https://api.ipify.org?format=json", None) {
         if let Some(ip) = v.get("ip").and_then(|i| i.as_str()) {
@@ -4658,13 +5029,16 @@ fn get_public_ip() -> Value {
         }
     }
     json!({"success": false, "error": "Could not determine public IP — check your internet connection."})
-}
+
+        })
+    }
 
 // ==================== MOD PROFILES ====================
 fn mod_profiles_file() -> PathBuf { app_dir().join("mod_profiles.json") }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn save_mod_profile(app: State<AppState>, name: String, instance_name: String) -> Value {
+        tokio::task::block_in_place(|| {
     log_msg(&app, &format!("[Profiles] Saving mod profile '{}' from '{}'...", name, instance_name));
     let mods_dir = instances_dir().join(&instance_name).join("mods");
     let mut mods = Vec::new();
@@ -4716,7 +5090,9 @@ fn save_mod_profile(app: State<AppState>, name: String, instance_name: String) -
     save_json(&profiles_path, &Value::Array(profiles.clone()));
     log_msg(&app, &format!("[Profiles/OK] Profile '{}' saved with {} mods", name, mods.len()));
     json!({"success": true, "mods_count": mods.len()})
-}
+
+        })
+    }
 
 #[tauri::command]
 fn load_mod_profiles() -> Value {
@@ -4734,8 +5110,9 @@ fn delete_mod_profile(name: String) -> Value {
     json!({"success": true, "removed": before > profiles.len()})
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn apply_mod_profile(app: State<AppState>, name: String, instance_name: String) -> Value {
+        tokio::task::block_in_place(|| {
     log_msg(&app, &format!("[Profiles] Applying profile '{}' to '{}'...", name, instance_name));
     let profiles_path = mod_profiles_file();
     let profiles: Vec<Value> = load_json(&profiles_path).as_array().cloned().unwrap_or_default();
@@ -4804,11 +5181,14 @@ fn apply_mod_profile(app: State<AppState>, name: String, instance_name: String) 
         "total": profile_mods.len(),
         "errors": errors,
     })
-}
+
+        })
+    }
 
 // ==================== MOD UPDATES ====================
-#[tauri::command]
+#[tauri::command(async)]
 fn check_mod_updates(app: State<AppState>, instance_name: String) -> Value {
+        tokio::task::block_in_place(|| {
     log_msg(&app, &format!("[ModUpdates] Checking updates for '{}'...", instance_name));
     let mods_dir = instances_dir().join(&instance_name).join("mods");
     let mut updates = Vec::new();
@@ -4897,7 +5277,9 @@ fn check_mod_updates(app: State<AppState>, instance_name: String) -> Value {
 
     log_msg(&app, &format!("[ModUpdates] Checked {} mods, found {} update(s)", checked, updates.len()));
     json!({"success": true, "updates": updates, "total_checked": checked})
-}
+
+        })
+    }
 
 // ==================== CRASH LOG ANALYZER ====================
 #[tauri::command]
@@ -4964,8 +5346,9 @@ fn analyze_crash_log(instance_name: String) -> Value {
 }
 
 // ==================== MOD DEPENDENCY RESOLVER ====================
-#[tauri::command]
+#[tauri::command(async)]
 fn resolve_mod_dependencies(app: State<AppState>, instance_name: String, slug: String) -> Value {
+        tokio::task::block_in_place(|| {
     log_msg(&app, &format!("[Deps] Resolving dependencies for '{}' in '{}'...", slug, instance_name));
     let project_url = format!("{}/project/{}", MODRINTH_API, slug);
     let project = match http_get(&project_url, None) {
@@ -5054,7 +5437,9 @@ fn resolve_mod_dependencies(app: State<AppState>, instance_name: String, slug: S
         "installed": installed_deps,
         "errors": errors,
     })
-}
+
+        })
+    }
 
 // ==================== RESOURCE PACK AUTO-ENABLE ====================
 #[tauri::command]
@@ -5109,8 +5494,9 @@ fn auto_enable_resourcepack(instance_name: String, filename: String) -> Value {
 }
 
 // ==================== EXPORT INSTANCE AS MRPACK ====================
-#[tauri::command]
+#[tauri::command(async)]
 fn export_instance_mrpack(app: State<AppState>, instance_name: String, name: String, version_id: String, output_path: String) -> Value {
+        tokio::task::block_in_place(|| {
     log_msg(&app, &format!("[Export] Exporting '{}' as .mrpack...", instance_name));
     let inst_dir = instances_dir().join(&instance_name);
 
@@ -5164,7 +5550,18 @@ fn export_instance_mrpack(app: State<AppState>, instance_name: String, name: Str
 
     let file = match std::fs::File::create(&output_path) {
         Ok(f) => f,
-        Err(e) => return json!({"error": e.to_string()}),
+        Err(e) => {
+            // Make sure the target folder exists before giving up.
+            if let Some(parent) = Path::new(&output_path).parent() {
+                let _ = std::fs::create_dir_all(parent);
+                match std::fs::File::create(&output_path) {
+                    Ok(f) => f,
+                    Err(e2) => return json!({"error": format!("{} (folder: {})", e, e2)}),
+                }
+            } else {
+                return json!({"error": e.to_string()});
+            }
+        }
     };
 
     let mut zip = zip::ZipWriter::new(file);
@@ -5205,7 +5602,9 @@ fn export_instance_mrpack(app: State<AppState>, instance_name: String, name: Str
     let _ = zip.finish();
     log_msg(&app, &format!("[Export/OK] Exported to {}", output_path));
     json!({"success": true, "path": output_path, "mods_count": index_files.len()})
-}
+
+        })
+    }
 
 // ==================== MOD CONFLICT DETECTION ====================
 #[tauri::command]
@@ -5676,8 +6075,9 @@ fn get_cached_java_installations(app: &State<AppState>) -> Vec<Value> {
     javas
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn check_java_compatibility(app: State<AppState>, mc_version: String) -> Value {
+        tokio::task::block_in_place(|| {
     let required = get_required_java_for_mc(&mc_version);
     let javas = get_cached_java_installations(&app);
 
@@ -5707,10 +6107,13 @@ fn check_java_compatibility(app: State<AppState>, mc_version: String) -> Value {
         "compatible_javas": compatible,
         "managed_java_dir": java_dir().to_string_lossy(),
     })
-}
 
-#[tauri::command]
+        })
+    }
+
+#[tauri::command(async)]
 fn download_java(app: State<AppState>, major_version: u32) -> Value {
+        tokio::task::block_in_place(|| {
     match auto_download_java(&app, major_version) {
         Ok(path) => {
             save_setting_val(&app, "java_path", Value::String(path.clone()));
@@ -5718,7 +6121,9 @@ fn download_java(app: State<AppState>, major_version: u32) -> Value {
         }
         Err(e) => json!({"error": e}),
     }
-}
+
+        })
+    }
 
 #[tauri::command]
 fn get_java_installations() -> Value {
@@ -6076,8 +6481,9 @@ fn get_selfhost_status() -> Value {
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn download_selfhost(app: State<AppState>) -> Value {
+        tokio::task::block_in_place(|| {
     log_msg(&app, "[SelfHost] Starting download of EcSelfHost.exe...");
     let _ = std::fs::create_dir_all(&selfhost_dir());
 
@@ -6121,7 +6527,9 @@ fn download_selfhost(app: State<AppState>) -> Value {
             json!({"success": false, "error": format!("Download failed: {}", e)})
         }
     }
-}
+
+        })
+    }
 
 fn extract_mediafire_download_url(html: &str) -> Option<String> {
     // Look for downloadUrl in JavaScript
@@ -6216,8 +6624,9 @@ fn paper_version_key(v: &str) -> (u64, u64, u64) {
     (a, b, c)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn get_server_versions() -> Value {
+        tokio::task::block_in_place(|| {
     match http_get("https://fill.papermc.io/v3/projects/paper", None) {
         Ok(data) => {
             let mut versions: Vec<String> = Vec::new();
@@ -6238,10 +6647,13 @@ fn get_server_versions() -> Value {
         }
         Err(e) => json!({"error": format!("Failed to fetch Paper versions: {}", e)}),
     }
-}
 
-#[tauri::command]
+        })
+    }
+
+#[tauri::command(async)]
 fn get_server_builds(mc_version: String) -> Value {
+        tokio::task::block_in_place(|| {
     let url = format!("https://fill.papermc.io/v3/projects/paper/versions/{}/builds", mc_version);
     match http_get(&url, None) {
         Ok(data) => {
@@ -6261,7 +6673,9 @@ fn get_server_builds(mc_version: String) -> Value {
         }
         Err(e) => json!({"error": format!("Failed to fetch Paper builds for {}: {}", mc_version, e)}),
     }
-}
+
+        })
+    }
 
 // ==================== SERVER LAUNCH ====================
 #[tauri::command]
@@ -6898,11 +7312,14 @@ fn server_mgr_set_properties(name: String, properties: HashMap<String, String>) 
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn server_mgr_search_plugins(query: String, mc_version: Option<String>, limit: Option<u32>) -> Value {
+        tokio::task::block_in_place(|| {
     let mc = mc_version.filter(|m| !m.trim().is_empty());
     search_modrinth(query, Some("plugin".to_string()), Some("paper".to_string()), mc, limit)
-}
+
+        })
+    }
 
 fn install_plugin_blocking(name: &str, slug: &str, version_id: Option<String>, mc_version: Option<String>) -> Value {
     let name = sanitize_server_name(name);
@@ -7063,8 +7480,9 @@ fn server_mgr_server_types() -> Value {
     ]})
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn server_mgr_list_versions(server_type: String) -> Value {
+        tokio::task::block_in_place(|| {
     match server_type.to_lowercase().as_str() {
         "purpur" => match http_get("https://api.purpurmc.org/v2/purpur", None) {
             Ok(d) => {
@@ -7098,7 +7516,9 @@ fn server_mgr_list_versions(server_type: String) -> Value {
         },
         _ => get_server_versions(),
     }
-}
+
+        })
+    }
 
 // ---------- Files ----------
 #[tauri::command]
@@ -7726,7 +8146,9 @@ fn ai_resolve_key(app: &State<AppState>, setting_key: &str, env_key: &str, file_
 
 // The user's requested model is first; Groq decommissioned llama-3.2-11b-vision-preview,
 // so the chain transparently moves to a tool-capable model, then to Gemini.
-const GROQ_MODELS: [&str; 5] = ["llama-3.2-11b-vision-preview", "openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b", "llama-3.1-8b-instant"];
+// Groq tool-capable models, fastest/most-reliable first. (llama-3.2-11b-vision-preview
+// was decommissioned by Groq and removed — leading with it only wasted a round-trip.)
+const GROQ_MODELS: [&str; 4] = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b", "llama-3.1-8b-instant"];
 const GEMINI_API: &str = "https://generativelanguage.googleapis.com/v1beta/models";
 // Fallback provider used when Groq cannot answer: the requested Gemini model first.
 const GEMINI_MODELS: [&str; 3] = ["gemini-3.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash"];
@@ -7779,6 +8201,211 @@ fn ai_system_prompt(app: &State<AppState>) -> String {
     s.push_str("- Keep replies concise. After finishing actions, briefly confirm what you did.\n");
     s.push_str("- You have 200+ tools covering servers, console commands, players/whitelist/ops, plugins, worlds, backups, files, profiles, mods, launcher settings, navigation and guides.\n");
     s
+}
+
+// ==================== IMAGE DISK CACHE ====================
+// Remote art (mod icons, banners, partner logos, avatars, news artwork) is
+// downloaded once into ~/.xryloth/image_cache and displayed through the asset
+// protocol. The frontend asks image_cache_get before showing anything:
+//   - hit  -> local path returned immediately (first paint never waits)
+//   - stale -> background conditional GET (If-None-Match / If-Modified-Since);
+//              if the image changed, "image-cache-updated" swaps it live
+//   - miss -> download now (caller falls back to the remote URL on error)
+
+fn image_cache_dir() -> PathBuf {
+    let d = app_dir().join("image_cache");
+    let _ = std::fs::create_dir_all(&d);
+    d
+}
+
+fn image_cache_key(url: &str) -> String {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut h = DefaultHasher::new();
+    url.hash(&mut h);
+    format!("{:016x}", h.finish())
+}
+
+fn image_cache_paths(url: &str) -> (PathBuf, PathBuf) {
+    let dir = image_cache_dir();
+    let key = image_cache_key(url);
+    (dir.join(format!("{}.img", key)), dir.join(format!("{}.json", key)))
+}
+
+fn image_meta_read(meta: &Path) -> Value {
+    match std::fs::read_to_string(meta)
+        .ok()
+        .and_then(|t| serde_json::from_str::<Value>(&t).ok())
+    {
+        // Only objects are usable as meta (a corrupt file must never panic
+        // the revalidation task when we write fetched_at into it).
+        Some(v @ Value::Object(_)) => v,
+        _ => json!({}),
+    }
+}
+
+/// Guard against caching HTML error pages / JSON as "images".
+fn image_bytes_look_like_image(b: &[u8]) -> bool {
+    if b.starts_with(&[0x89, b'P', b'N', b'G']) { return true; } // PNG
+    if b.starts_with(&[0xFF, 0xD8, 0xFF]) { return true; }       // JPEG
+    if b.starts_with(b"GIF8") { return true; }                   // GIF
+    if b.starts_with(b"RIFF") && b.len() > 12 && &b[8..12] == b"WEBP" { return true; }
+    if b.starts_with(&[0x00, 0x00, 0x01, 0x00]) { return true; } // ICO
+    let head = String::from_utf8_lossy(&b[..b.len().min(256)]).trim_start().to_lowercase();
+    head.starts_with("<?xml") || head.starts_with("<svg")
+}
+
+const IMAGE_REVALIDATE_SECS: i64 = 3600; // re-check remote after 1h
+
+/// Download (or conditionally revalidate) `url` into the cache.
+/// Returns "updated" | "not-modified".
+async fn image_fetch_into_cache(url: &str, conditional: bool) -> Result<String, String> {
+    let (file, meta_path) = image_cache_paths(url);
+    let meta = image_meta_read(&meta_path);
+
+    let mut req = reqwest::Client::builder()
+        .user_agent(USER_AGENT)
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| e.to_string())?
+        .get(url);
+    if conditional {
+        if let Some(e) = meta.get("etag").and_then(|v| v.as_str()) {
+            if !e.is_empty() { req = req.header("If-None-Match", e); }
+        }
+        if let Some(l) = meta.get("last_modified").and_then(|v| v.as_str()) {
+            if !l.is_empty() { req = req.header("If-Modified-Since", l); }
+        }
+    }
+
+    let resp = req.send().await.map_err(|e| e.to_string())?;
+    let status = resp.status();
+
+    if status.as_u16() == 304 {
+        let mut m = meta;
+        m["fetched_at"] = json!(chrono::Local::now().timestamp());
+        let _ = std::fs::write(&meta_path, m.to_string());
+        return Ok("not-modified".into());
+    }
+    if !status.is_success() {
+        return Err(format!("HTTP {}", status.as_u16()));
+    }
+
+    let ctype = resp
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    let etag = resp
+        .headers()
+        .get(reqwest::header::ETAG)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    let last_modified = resp
+        .headers()
+        .get(reqwest::header::LAST_MODIFIED)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+
+    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+    if !ctype.starts_with("image/") && !image_bytes_look_like_image(&bytes) {
+        return Err("response is not an image".into());
+    }
+
+    std::fs::write(&file, &bytes).map_err(|e| e.to_string())?;
+    let new_meta = json!({
+        "url": url,
+        "etag": etag,
+        "last_modified": last_modified,
+        "fetched_at": chrono::Local::now().timestamp(),
+        "size": bytes.len()
+    });
+    let _ = std::fs::write(&meta_path, new_meta.to_string());
+    Ok("updated".into())
+}
+
+#[tauri::command]
+async fn image_cache_get(app: tauri::AppHandle, url: String) -> Value {
+    if !(url.starts_with("http://") || url.starts_with("https://")) {
+        return json!({"error": "not a remote image url"});
+    }
+    let (file, meta_path) = image_cache_paths(&url);
+
+    if file.exists() {
+        // Instant hit — never block the UI. Revalidate stale copies in the
+        // background and push a live swap event if the image changed.
+        let meta = image_meta_read(&meta_path);
+        let fetched_at = meta.get("fetched_at").and_then(|v| v.as_i64()).unwrap_or(0);
+        let stale = chrono::Local::now().timestamp() - fetched_at > IMAGE_REVALIDATE_SECS;
+        if stale {
+            let bg_app = app.clone();
+            let bg_url = url.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Ok(state) = image_fetch_into_cache(&bg_url, true).await {
+                    if state == "updated" {
+                        let (f, _) = image_cache_paths(&bg_url);
+                        let _ = bg_app.emit_all(
+                            "image-cache-updated",
+                            json!({"url": bg_url, "path": f.to_string_lossy()}),
+                        );
+                    }
+                }
+            });
+        }
+        return json!({
+            "success": true, "cached": true, "stale": stale,
+            "path": file.to_string_lossy()
+        });
+    }
+
+    // Cache miss — fetch now so the page can show something real.
+    match image_fetch_into_cache(&url, false).await {
+        Ok(_) => json!({"success": true, "cached": false, "path": file.to_string_lossy()}),
+        Err(e) => json!({"error": e}),
+    }
+}
+
+#[tauri::command]
+async fn image_cache_warm(app: tauri::AppHandle, urls: Vec<String>) -> Value {
+    // Pre-download the art the launcher shows on its first screens (avatars,
+    // partner logos/banners, server icons) while the app boots, so opening a
+    // page paints instantly from disk.
+    let mut queue: Vec<String> = Vec::new();
+    for u in urls {
+        if queue.len() >= 64 { break; }
+        if !(u.starts_with("http://") || u.starts_with("https://")) { continue; }
+        if queue.contains(&u) { continue; }
+        let (f, m) = image_cache_paths(&u);
+        if f.exists() {
+            let meta = image_meta_read(&m);
+            let fetched_at = meta.get("fetched_at").and_then(|v| v.as_i64()).unwrap_or(0);
+            if chrono::Local::now().timestamp() - fetched_at <= IMAGE_REVALIDATE_SECS {
+                continue; // fresh on disk already
+            }
+        }
+        queue.push(u);
+    }
+    let n = queue.len();
+    if n == 0 { return json!({"success": true, "queued": 0}); }
+
+    tauri::async_runtime::spawn(async move {
+        for u in queue {
+            let conditional = image_cache_paths(&u).0.exists();
+            if let Ok(state) = image_fetch_into_cache(&u, conditional).await {
+                if state == "updated" {
+                    let (f, _) = image_cache_paths(&u);
+                    let _ = app.emit_all(
+                        "image-cache-updated",
+                        json!({"url": u, "path": f.to_string_lossy()}),
+                    );
+                }
+            }
+        }
+    });
+    json!({"success": true, "queued": n})
 }
 
 // ---------- tool definitions ----------
@@ -8115,7 +8742,7 @@ fn ai_tool_defs() -> Vec<Value> {
 
     // --- launcher / app ---
     let pages: &[(&str, &str)] = &[
-        ("home", "Home"), ("instances", "Profiles"), ("mods", "Mods"), ("modpacks", "Modpacks"),
+        ("play", "Home"), ("instances", "Profiles"), ("mods", "Mods"), ("modpacks", "Modpacks"),
         ("packs", "Resource Packs"), ("servers", "Servers"), ("themes", "Themes"), ("chat", "Community Chat"),
         ("settings", "Settings"), ("logs", "Logs"), ("accounts", "Accounts"), ("xai", "Xryloth AI"),
         ("templates", "Templates"), ("configeditor", "Config Editor"),
@@ -8124,7 +8751,12 @@ fn ai_tool_defs() -> Vec<Value> {
         t.push(ai_simple(&format!("app_navigate_{}", id), &format!("Switch the launcher UI to the {} page.", label)));
     }
     t.push(ai_tool("app_navigate", "Switch the launcher UI to any page.", &[
-        ("page", "string", "Page id: home, instances, mods, modpacks, packs, servers, themes, chat, settings, logs, accounts, xai, templates, configeditor", true),
+        ("page", "string", "Page id: play (home), instances, mods, modpacks, packs, servers, themes, chat, settings, logs, accounts, xai, templates, configeditor", true),
+    ]));
+    t.push(ai_simple("app_open_create_instance", "Open the Profiles page and launch the Create Instance wizard (same as clicking New Instance)."));
+    t.push(ai_simple("app_refresh", "Refresh the current page / the AI's workspace lists."));
+    t.push(ai_tool("app_open_mod_browser", "Open the Mods browser.", &[
+        ("tab", "string", "Optional tab: mods, modpacks, packs (default mods)", false),
     ]));
     t.push(ai_simple("app_settings_get", "Read every launcher setting."));
     t.push(ai_tool("app_settings_set", "Set one or more launcher settings.", &[("settings", "object", "Map of setting key -> value", true)]));
@@ -8701,11 +9333,32 @@ fn ai_execute_tool_blocking(app: &State<AppState>, handle: &tauri::AppHandle, to
 
     // ---- navigation ----
     if tool == "app_navigate" || tool.starts_with("app_navigate_") {
-        let page = if tool == "app_navigate" { s("page") } else { tool.strip_prefix("app_navigate_").unwrap_or("").to_string() };
-        let valid = ["home","instances","mods","modpacks","packs","servers","themes","chat","settings","logs","accounts","xai","templates","configeditor"];
+        let mut page = if tool == "app_navigate" { s("page") } else { tool.strip_prefix("app_navigate_").unwrap_or("").to_string() };
+        // The real homepage is the "play" route (HeroStage). Older code used "home",
+        // which fell back to the deprecated HomePage — alias it so "open the homepage"
+        // lands on the actual home screen.
+        if page == "home" || page == "homepage" || page == "main" { page = "play".to_string(); }
+        let valid = ["play","home","profiles","instances","mods","modpacks","packs","partners","servers","themes","chat","settings","logs","accounts","xai","templates","configeditor"];
         if !valid.contains(&page.as_str()) { return json!({"error": format!("Unknown page '{}'.", page)}); }
         emit_action(json!({"type": "navigate", "page": page}));
         return json!({"success": true, "summary": format!("Switched to the {} page.", page)});
+    }
+
+    // ---- UI actions (press launcher buttons) ----
+    if tool == "app_open_create_instance" {
+        // Switch to the Profiles/Instances page and open the "Create instance" wizard.
+        emit_action(json!({"type": "navigate", "page": "instances"}));
+        emit_action(json!({"type": "open-create-instance"}));
+        return json!({"success": true, "summary": "Opened the Profiles page and launched the Create Instance wizard."});
+    }
+    if tool == "app_refresh" {
+        emit_action(json!({"type": "refresh-current"}));
+        return json!({"success": true, "summary": "Refreshed the current page."});
+    }
+    if tool == "app_open_mod_browser" {
+        let tab = s("tab");
+        emit_action(json!({"type": "navigate", "page": "mods", "tab": if tab.is_empty() { "mods".to_string() } else { tab } }));
+        return json!({"success": true, "summary": "Opened the Mods browser."});
     }
 
     // ---- app settings ----
@@ -9462,7 +10115,11 @@ fn ai_execute_tool_blocking(app: &State<AppState>, handle: &tauri::AppHandle, to
         save_instances(&instances);
         *app.ai_context.lock().unwrap() = Some(json!({"kind": "instance", "name": name.clone()}));
         note_refresh("instances");
-        return json!({"success": true, "summary": format!("Created profile '{}' ({} {}).", name, loader, mc), "instance": instance_data});
+        // Actually download the client jar, libraries, assets and the mod loader
+        // in the background so the profile is genuinely playable (previously this
+        // only created the folder — an empty shell that could not launch).
+        install_instance(handle.clone(), name.clone(), mc.clone(), loader.clone(), loader_version.clone());
+        return json!({"success": true, "summary": format!("Created profile '{}' and started installing {} {} in the background. It will be ready to launch once the download finishes — check the Profiles page for live progress.", name, loader, mc), "instance": instance_data});
     }
     if tool == "instance_delete" {
         let name = s("name");
@@ -9882,12 +10539,13 @@ fn import_instance_config(app: State<AppState>, file_path: String) -> Value {
 }
 
 // ==================== BATCH INSTALL MODS ====================
-#[tauri::command]
+#[tauri::command(async)]
 fn batch_install_mods(app: State<AppState>, instance_name: String, slugs: Vec<String>) -> Value {
+        tokio::task::block_in_place(|| {
     let mut installed = 0;
     let mut errors = Vec::new();
     for slug in &slugs {
-        match install_mod(app.clone(), instance_name.clone(), slug.clone(), None) {
+        match install_mod_inner(&app, &instance_name, slug, None) {
             Value::Object(ref obj) if obj.contains_key("success") && obj.get("success") == Some(&Value::Bool(true)) => {
                 installed += 1;
             }
@@ -9898,13 +10556,18 @@ fn batch_install_mods(app: State<AppState>, instance_name: String, slugs: Vec<St
         }
     }
     json!({"success": true, "installed": installed, "errors": errors})
-}
+
+        })
+    }
 
 // ==================== CHECK LAUNCHER UPDATE ====================
-#[tauri::command]
+#[tauri::command(async)]
 fn check_launcher_update(_app: State<AppState>) -> Value {
+        tokio::task::block_in_place(|| {
     release_info()
-}
+
+        })
+    }
 
 // ==================== UPDATE: DOWNLOAD WITH REALTIME LOGS ====================
 fn emit_update_log(app: &tauri::AppHandle, msg: &str) {
@@ -9976,8 +10639,9 @@ fn download_update_with_progress(app: &tauri::AppHandle, url: &str, dest: &Path)
     Ok(downloaded)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn download_update(app: tauri::AppHandle, url: String, filename: String) -> Value {
+        tokio::task::block_in_place(|| {
     if url.trim().is_empty() {
         return json!({"error": "No download URL provided"});
     }
@@ -10004,7 +10668,9 @@ fn download_update(app: tauri::AppHandle, url: String, filename: String) -> Valu
             json!({"error": e})
         }
     }
-}
+
+        })
+    }
 
 // ==================== UPDATE: INSTALL / RELAUNCH ====================
 #[tauri::command]
@@ -10184,8 +10850,9 @@ fn move_resourcepack_file(app: State<AppState>, instance_name: String, source_pa
 
 // ==================== GAME BOOST ====================
 
-#[tauri::command]
+#[tauri::command(async)]
 fn game_boost(app: State<AppState>, instance_name: String) -> Value {
+        tokio::task::block_in_place(|| {
     log_msg(&app, "[Boost] Starting game boost...");
 
     let mut steps_completed = 0u32;
@@ -10410,7 +11077,9 @@ fn game_boost(app: State<AppState>, instance_name: String) -> Value {
         "steps_total": steps_total,
         "details": details,
     })
-}
+
+        })
+    }
 
 // ==================== NOTIFICATION & SOUND ====================
 
@@ -11116,7 +11785,7 @@ pub fn run() {
             check_updates, get_system_info,
             get_logs, clear_logs, get_game_output, clear_game_output,
             get_play_times,
-            open_instance_folder, get_instance_mods, toggle_mod, delete_mod,
+            open_instance_folder, open_instance_path, get_instance_settings, save_instance_settings, clear_instance_cache, edit_instance, get_instance_mods, toggle_mod, delete_mod,
             rename_instance, set_instance_icon, get_instance_icon,
             get_instance_resourcepacks, delete_resourcepack,
             create_instance_from_modpack, get_minecraft_news_enhanced,
@@ -11169,6 +11838,7 @@ pub fn run() {
             server_mgr_file_rename, server_mgr_file_copy, server_mgr_file_read_b64, server_mgr_file_download,
             server_mgr_reset_world, server_mgr_reinstall,
             uninstall_launcher,
+            image_cache_get, image_cache_warm,
         ])
         .setup(move |app| {
             if let Some(listener) = instance_listener {
@@ -11178,6 +11848,25 @@ pub fn run() {
 
             let window = app.get_window("main").unwrap();
             window.set_title("Xryloth").ok();
+
+            // Asset protocol scope for the local image cache.
+            // tauri.conf.json's assetScope `["**"]` does not match absolute
+            // /home/... paths (Tauri 1.x glob semantics), so cached images in
+            // ~/.xryloth/image_cache were rejected at load ("asset protocol
+            // not configured to allow the path"). Allow the cache dir (and
+            // the whole app dir) explicitly at runtime.
+            {
+                let scope = app.asset_protocol_scope();
+                let _ = scope.allow_directory(&app_dir(), true);
+                if let Some(home) = dirs::home_dir() {
+                    let _ = scope.allow_directory(&home.join(".xryloth"), true);
+                }
+            }
+
+            // Ensure window is visible and not minimized on startup
+            window.unminimize().ok();
+            window.show().ok();
+            window.set_focus().ok();
 
             // Put ourselves in front when we start.
             //

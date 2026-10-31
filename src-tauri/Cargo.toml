@@ -39,7 +39,7 @@ urlencoding = "2.1"
 webbrowser = "0.8"
 regex-lite = "0.1"
 serde_yaml = "0.9"
-winapi = { version = "0.3", features = ["shellapi", "winuser", "winnt", "winbase", "combaseapi", "shlobj", "objbase", "objidl", "wtypesbase", "wtypes"] }
+winapi = { version = "0.3", features = ["shellapi", "winuser", "winnt", "winbase", "combaseapi", "shlobj", "shobjidl_core", "objbase", "objidl", "wtypesbase", "wtypes"] }
 
 [target.'cfg(windows)'.dependencies]
 winreg = { version = "0.10" }

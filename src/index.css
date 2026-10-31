@@ -8,7 +8,7 @@ html, body {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #050505;
+  background: #090B0E;
   scroll-behavior: smooth;
 }
 
@@ -167,7 +167,7 @@ html, body {
 
 /* ===== CARD ANIMATIONS ===== */
 @keyframes cardHover { from { transform: translateY(0); } to { transform: translateY(-4px); } }
-@keyframes cardGlow { 0%, 100% { box-shadow: 0 4px 16px rgba(0,0,0,0.1); } 50% { box-shadow: 0 4px 24px rgba(0,0,0,0.2), 0 0 12px rgba(255,255,255,0.05); } }
+@keyframes cardGlow { 0%, 100% { box-shadow: 0 4px 16px rgba(28,26,24,0.1); } 50% { box-shadow: 0 4px 24px rgba(28,26,24,0.2), 0 0 12px rgba(255,255,255,0.05); } }
 @keyframes cardBorder { 0%, 100% { border-color: rgba(255,255,255,0.06); } 50% { border-color: rgba(255,255,255,0.12); } }
 @keyframes cardShine {
   0% { transform: translateX(-100%) rotate(12deg); }
@@ -286,18 +286,18 @@ html, body {
    Xryloth ember theme, Lunar, God Red, ...) reaches every page without a
    single inline style. They are written by ThemeSync in App.tsx. */
 :root {
-  --x-accent: #ffba08;
-  --x-accent2: #f48c06;
-  --x-accent-text: #1a0a00;
-  --x-text: #fff4e8;
-  --x-text-sub: #ffb98a;
-  --x-text-muted: #a86a48;
-  --x-border: #3d2113;
-  --x-border-soft: rgba(255, 186, 8, 0.22);
+  --x-accent: #e06b22;
+  --x-accent2: #c85108;
+  --x-accent-text: #ffffff;
+  --x-text: #ffffff;
+  --x-text-sub: #a1a1aa;
+  --x-text-muted: #71717a;
+  --x-border: rgba(255, 255, 255, 0.08);
+  --x-border-soft: rgba(255, 255, 255, 0.04);
   --x-surface: rgba(255, 255, 255, 0.025);
   --x-surface-hover: rgba(255, 255, 255, 0.05);
-  --x-trace: rgba(255, 255, 255, 0.10);
-  --x-trace-strong: rgba(255, 255, 255, 0.18);
+  --x-trace: rgba(255, 255, 255, 0.08);
+  --x-trace-strong: rgba(255, 255, 255, 0.12);
 }
 
 /* ===== GLASSMORPHISM =====
@@ -305,8 +305,8 @@ html, body {
    ember sheen that follows the pointer. */
 .glass-card {
   background: var(--x-surface);
-  backdrop-filter: blur(32px) saturate(1.6) brightness(1.05);
-  -webkit-backdrop-filter: blur(32px) saturate(1.6) brightness(1.05);
+  backdrop-filter: blur(12px) saturate(1.6) brightness(1.05);
+  -webkit-backdrop-filter: blur(12px) saturate(1.6) brightness(1.05);
   border: 1px solid var(--x-border);
   position: relative;
   overflow: hidden;
@@ -327,7 +327,7 @@ html, body {
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at var(--mx, 50%) var(--my, 30%), rgba(255, 186, 8, 0.06) 0%, transparent 60%);
+  background: radial-gradient(circle at var(--mx, 50%) var(--my, 30%), rgba(255, 255, 255, 0.05) 0%, transparent 60%);
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.3s;
@@ -338,7 +338,7 @@ html, body {
   background: var(--x-surface-hover);
   border-color: var(--x-trace-strong);
   transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
 }
 
 /* ===== DESIGN SYSTEM =====
@@ -351,8 +351,8 @@ html, body {
 .panel-dark {
   background: var(--x-surface);
   border: 1px solid var(--x-border);
-  backdrop-filter: blur(24px) saturate(1.4);
-  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
   border-radius: 16px;
 }
 .panel-dark:hover { border-color: var(--x-border-soft); }
@@ -428,13 +428,13 @@ input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
   width: 14px; height: 14px; border-radius: 50%;
   background: #fff; cursor: pointer;
-  box-shadow: 0 0 8px rgba(0,0,0,0.3), 0 0 16px rgba(255,255,255,0.1);
+  box-shadow: 0 0 8px rgba(28,26,24,0.3), 0 0 16px rgba(255,255,255,0.1);
   border: 2px solid rgba(255,255,255,0.2);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 input[type="range"]::-webkit-slider-thumb:hover {
   transform: scale(1.3);
-  box-shadow: 0 0 12px rgba(0,0,0,0.3), 0 0 24px rgba(255,255,255,0.2);
+  box-shadow: 0 0 12px rgba(28,26,24,0.3), 0 0 24px rgba(255,255,255,0.2);
 }
 input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; cursor: pointer; border: 2px solid rgba(255,255,255,0.2); }
 
@@ -492,13 +492,13 @@ input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius
   transition: box-shadow 0.3s ease, border-color 0.3s ease;
 }
 .glow-hover:hover {
-  box-shadow: 0 0 20px var(--glow-color, rgba(255,255,255,0.08)), 0 4px 24px rgba(0,0,0,0.3);
+  box-shadow: 0 0 20px var(--glow-color, rgba(255,255,255,0.08)), 0 4px 24px rgba(28,26,24,0.3);
   border-color: var(--glow-border, rgba(255,255,255,0.12));
 }
 
 /* ===== HOVER EFFECTS ===== */
 .hover-lift { transition: transform 0.2s ease, box-shadow 0.2s ease; }
-.hover-lift:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.2); }
+.hover-lift:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(28,26,24,0.2); }
 .hover-glow { transition: box-shadow 0.2s ease; }
 .hover-glow:hover { box-shadow: 0 0 16px var(--glow-color, rgba(255,255,255,0.1)); }
 .hover-scale { transition: transform 0.2s ease; }
@@ -509,3 +509,27 @@ input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius
 .hover-bright:hover { filter: brightness(1.2); }
 .hover-saturate { transition: filter 0.2s ease; }
 .hover-saturate:hover { filter: saturate(1.3); }
+
+/* ===== PERFORMANCE: backdrop-filter budget =========================
+   webkit2GTK re-runs a backdrop blur every frame that anything behind the
+   element moves. The design used radii up to 32px across 50+ surfaces,
+   which is the single biggest compositing cost in the launcher. Cap the   heavy Tailwind backdrop-blur utilities at 12px — visually
+   equivalent on this dark palette, far cheaper to composite. */
+.backdrop-blur-md,
+.backdrop-blur-lg,
+.backdrop-blur-xl,
+.backdrop-blur-2xl,
+.backdrop-blur-3xl {
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+/* Low-end tier (RAM < 7 GiB, see src/lib/deviceTier.ts): drop backdrop
+   blur entirely — frosted glass becomes plain tinted glass and the GPU
+   gets its head back. Applied via the `lowend` class on <html>. */
+html.lowend *,
+html.lowend *::before,
+html.lowend *::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}

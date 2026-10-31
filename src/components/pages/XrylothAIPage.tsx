@@ -4,11 +4,13 @@ import { GlassCard } from "../ui/GlassCard";
 import { GlowButton } from "../ui/GlowButton";
 import { GlassInput } from "../ui/FormControls";
 import { Select } from "../ui/Select";
+import { alertDialog } from "../ui/Dialog";
 import {
   AlertTriangle, Bot, FileText, Search, Send, User, Sparkles,
   Terminal, Folder, FolderOpen, File, Trash2, ChevronRight,
   Play, ArrowUp, Copy, Download, RefreshCw, Wrench,
   Server, Gamepad2, Boxes, CheckCircle2, Loader2, Plug, ListChecks,
+  Key, Save, ExternalLink, Eye, EyeOff,
 } from "lucide-react";
 import { api } from "../../lib/api";
 import { isTauri } from "../../lib/tauri";
@@ -99,7 +101,7 @@ function Markdown({ text, tc }: { text: string; tc: { text_main: string; text_su
   return <div className="min-w-0">{out}</div>;
 }
 
-type TabType = "chat" | "terminal" | "files" | "crash";
+type TabType = "chat" | "terminal" | "files" | "crash" | "settings";
 
 // Platform awareness so the terminal / file manager work on every OS.
 const IS_WINDOWS =
@@ -175,12 +177,36 @@ export function XrylothAIPage() {
   const [crashResult, setCrashResult] = useState<any>(null);
   const [analyzingCrash, setAnalyzingCrash] = useState(false);
 
+  // AI provider settings (keys + model overrides) — read from launcher settings
+  const [groqKey, setGroqKey] = useState("");
+  const [geminiKey, setGeminiKey] = useState("");
+  const [groqModel, setGroqModel] = useState("");
+  const [geminiModel, setGeminiModel] = useState("");
+  const [showKeys, setShowKeys] = useState(false);
+  const [savingKeys, setSavingKeys] = useState(false);
+  const [keysSaved, setKeysSaved] = useState(false);
+
   // Quick commands
   const quickCommands = QUICK_COMMANDS;
 
   useEffect(() => {
     api.instances.get().then(setCrashInstances).catch(() => {});
     loadDir(ROOT_PATH);
+    // Load saved AI provider settings (keys + model overrides)
+    (async () => {
+      try {
+        const [gk, nk, gm, nm] = await Promise.all([
+          api.settings.getOne("ai_groq_key", ""),
+          api.settings.getOne("ai_gemini_key", ""),
+          api.settings.getOne("ai_groq_model", ""),
+          api.settings.getOne("ai_gemini_model", ""),
+        ]);
+        setGroqKey((gk as string) || "");
+        setGeminiKey((nk as string) || "");
+        setGroqModel((gm as string) || "");
+        setGeminiModel((nm as string) || "");
+      } catch {}
+    })();
   }, []);
 
   useEffect(() => {
@@ -399,6 +425,28 @@ export function XrylothAIPage() {
     setCtxName(name);
   };
 
+  // Persist the AI provider keys + model overrides into launcher settings.
+  // These exact keys are what the Rust `ai_resolve_key` reads first.
+  const saveAiSettings = async () => {
+    setSavingKeys(true);
+    setKeysSaved(false);
+    try {
+      await api.settings.save({
+        ai_groq_key: groqKey.trim(),
+        ai_gemini_key: geminiKey.trim(),
+        ai_groq_model: groqModel.trim(),
+        ai_gemini_model: geminiModel.trim(),
+      });
+      setKeysSaved(true);
+      setTimeout(() => setKeysSaved(false), 2500);
+    } catch (e: any) {
+      setKeysSaved(false);
+      alertDialog("Save Failed", e?.message || "Could not save AI settings.");
+    } finally {
+      setSavingKeys(false);
+    }
+  };
+
   const quickPrompts = [
     "Create a Paper server called ForizCart for 1.21.11 with the default MOTD on port 25579",
     "Install ViaVersion into ForizCart",
@@ -414,6 +462,7 @@ export function XrylothAIPage() {
     { id: "terminal", label: "Terminal", icon: Terminal, color: themeColors.success },
     { id: "files", label: "File Manager", icon: Folder, color: themeColors.blue },
     { id: "crash", label: "Crash Analyzer", icon: AlertTriangle, color: themeColors.warn },
+    { id: "settings", label: "AI Settings", icon: Key, color: themeColors.success },
   ];
 
   return (
@@ -837,6 +886,102 @@ export function XrylothAIPage() {
               )}
             </div>
           )}
+        </GlassCard>
+      )}
+
+      {/* AI SETTINGS TAB */}
+      {activeTab === "settings" && (
+        <GlassCard className="flex-1 overflow-y-auto p-4">
+          <div className="max-w-2xl mx-auto space-y-4">
+            <div className="flex items-center gap-2">
+              <Key size={16} style={{ color: themeColors.success }} />
+              <h2 className="tinycaps text-sm font-bold" style={{ color: themeColors.text_main }}>AI Provider Settings</h2>
+            </div>
+            <p className="text-xs leading-relaxed" style={{ color: themeColors.text_sub }}>
+              Xryloth AI uses <b>Groq</b> (primary) with automatic <b>Gemini</b> fallback. A key is usually
+              embedded so it works out of the box — paste your own below only if you hit rate limits or want
+              to use your personal quota. Keys are stored locally in your launcher settings.
+            </p>
+
+            {/* Groq */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold flex items-center gap-1.5" style={{ color: themeColors.text_main }}>
+                <span className="w-2 h-2 rounded-full" style={{ background: themeColors.success }} /> Groq API Key
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <GlassInput
+                    value={groqKey}
+                    onChange={setGroqKey}
+                    type={showKeys ? "text" : "password"}
+                    placeholder="gsk_… (leave blank to use the embedded key)"
+                    className="w-full pr-9"
+                  />
+                  <button
+                    onClick={() => setShowKeys((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded cursor-pointer"
+                    style={{ color: themeColors.text_muted, background: "transparent", border: "none" }}
+                    title={showKeys ? "Hide keys" : "Show keys"}
+                  >
+                    {showKeys ? <EyeOff size={13} /> : <Eye size={13} />}
+                  </button>
+                </div>
+              </div>
+              <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer"
+                className="inline-flex items-center gap-1 text-[10px] hover:underline" style={{ color: themeColors.accent }}>
+                Get a free Groq key <ExternalLink size={9} />
+              </a>
+            </div>
+
+            {/* Groq model override */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold" style={{ color: themeColors.text_main }}>Groq Model <span className="opacity-50">(optional override)</span></label>
+              <GlassInput value={groqModel} onChange={setGroqModel}
+                placeholder="auto — e.g. openai/gpt-oss-120b" className="w-full" />
+            </div>
+
+            {/* Gemini */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold flex items-center gap-1.5" style={{ color: themeColors.text_main }}>
+                <span className="w-2 h-2 rounded-full" style={{ background: themeColors.blue }} /> Gemini API Key <span className="opacity-50">(fallback)</span>
+              </label>
+              <GlassInput
+                value={geminiKey}
+                onChange={setGeminiKey}
+                type={showKeys ? "text" : "password"}
+                placeholder="AIza… (optional)"
+                className="w-full"
+              />
+              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer"
+                className="inline-flex items-center gap-1 text-[10px] hover:underline" style={{ color: themeColors.accent }}>
+                Get a free Gemini key <ExternalLink size={9} />
+              </a>
+            </div>
+
+            {/* Gemini model override */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold" style={{ color: themeColors.text_main }}>Gemini Model <span className="opacity-50">(optional override)</span></label>
+              <GlassInput value={geminiModel} onChange={setGeminiModel}
+                placeholder="auto — e.g. gemini-2.5-flash" className="w-full" />
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <GlowButton onClick={saveAiSettings} disabled={savingKeys} size="sm" className="flex items-center gap-1.5">
+                {savingKeys ? <Loader2 size={13} className="animate-spin" /> : keysSaved ? <CheckCircle2 size={13} /> : <Save size={13} />}
+                {keysSaved ? "Saved" : "Save Settings"}
+              </GlowButton>
+              <span className="text-[10px]" style={{ color: themeColors.text_muted }}>
+                Takes effect on your next message.
+              </span>
+            </div>
+
+            <div className="text-[10px] leading-relaxed p-2 rounded-lg" style={{ background: `${themeColors.accent}08`, border: `1px solid ${themeColors.accent}20`, color: themeColors.text_sub }}>
+              <b>Tips:</b> Type <code style={{ fontFamily: "monospace" }}>!command</code> in chat to run a raw terminal
+              command. Use the <b>Workspace</b> picker in the chat tab to focus the AI on a specific server or profile.
+              All 200+ tools (create servers, install plugins, whitelists, console, mods, files, navigation) run
+              locally on your machine.
+            </div>
+          </div>
         </GlassCard>
       )}
     </div>

@@ -35,8 +35,8 @@ export function TitleBar() {
       style={{
         background: `${themeColors.bg_nav}d9`,
         borderBottom: `1px solid ${themeColors.border}`,
-        backdropFilter: "blur(32px) saturate(1.4)",
-        WebkitBackdropFilter: "blur(32px) saturate(1.4)",
+        backdropFilter: "blur(12px) saturate(1.4)",
+        WebkitBackdropFilter: "blur(12px) saturate(1.4)",
       }}>
       <div className="absolute bottom-0 left-0 right-0 h-px" style={{
         background: `linear-gradient(90deg, transparent, ${themeColors.border_bright}, ${themeColors.border}, transparent)`,

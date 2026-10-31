@@ -132,7 +132,9 @@
                 "decorations": false,
                 "transparent": true,
                 "center": true,
-                "skipTaskbar": false
+                "skipTaskbar": false,
+                "visible": true,
+                "focus": true
             }
         ]
     }

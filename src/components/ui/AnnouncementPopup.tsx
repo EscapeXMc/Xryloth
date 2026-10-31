@@ -51,7 +51,7 @@ export function AnnouncementPopup({ item, onClose }: { item: Announcement; onClo
         style={{ background: themeColors.bg_card, border: `1px solid ${accent}55`, boxShadow: `0 24px 80px ${accent}33` }}
       >
         {hasMedia && (
-          <div className="relative w-full bg-black flex items-center justify-center" style={{ maxHeight: "46vh" }}>
+          <div className="relative w-full bg-[#090B0E] flex items-center justify-center" style={{ maxHeight: "46vh" }}>
             {item.mediaType === "video" ? (
               <video
                 src={item.mediaUrl}

@@ -26,6 +26,7 @@ let particleCanvas: HTMLCanvasElement | null = null;
 let particleCtx: CanvasRenderingContext2D | null = null;
 let particles: Particle[] = [];
 let animFrame = 0;
+let loopRunning = false;
 
 function ensureCanvas() {
   if (particleCanvas) return;
@@ -35,7 +36,15 @@ function ensureCanvas() {
   particleCtx = particleCanvas.getContext("2d");
   resizeCanvas();
   window.addEventListener("resize", resizeCanvas);
-  animate();
+}
+
+function startLoop() {
+  // The loop used to run forever after the first click-sparkle (clearing a
+  // full-viewport canvas at 60fps for nothing). Now it only runs while there
+  // are live particles; the next burst restarts it.
+  if (loopRunning) return;
+  loopRunning = true;
+  animFrame = requestAnimationFrame(animate);
 }
 
 function resizeCanvas() {
@@ -76,6 +85,11 @@ function animate() {
   }
 
   particleCtx.globalAlpha = 1;
+  if (particles.length === 0) {
+    // Nothing left alive — park the loop (zero CPU until the next burst).
+    loopRunning = false;
+    return;
+  }
   animFrame = requestAnimationFrame(animate);
 }
 
@@ -113,6 +127,7 @@ function spawnParticles(x: number, y: number, type: Particle["type"], count: num
       type,
     });
   }
+  startLoop();
 }
 
 export function useParticles() {
@@ -142,6 +157,7 @@ export function MinecraftParticles() {
     return () => {
       if (particleCanvas) {
         cancelAnimationFrame(animFrame);
+        loopRunning = false;
         particleCanvas.remove();
         particleCanvas = null;
         particleCtx = null;

@@ -13,7 +13,7 @@ function BrowserNotice() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "#000",
+        background: "#090B0E",
         color: "#f4f4f5",
         fontFamily: "Inter, system-ui, -apple-system, sans-serif",
         padding: 24,

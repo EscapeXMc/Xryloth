@@ -1,3 +1,4 @@
+import { CachedImage } from "./CachedImage";
 import { useState, useRef, ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLauncherStore } from "../../stores";
@@ -52,14 +53,14 @@ export function HoverPreview({ children, title, description, version, author, do
               style={{
                 background: themeColors.bg_glass,
                 border: `1px solid ${themeColors.border}`,
-                backdropFilter: "blur(24px)",
-                WebkitBackdropFilter: "blur(24px)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
                 boxShadow: `0 12px 48px rgba(0,0,0,0.5)`,
               }}
             >
               {imageUrl && (
                 <div className="h-20 w-full overflow-hidden" style={{ background: themeColors.bg_card }}>
-                  <img src={imageUrl} alt="" className="w-full h-full object-cover" />
+                  <CachedImage src={imageUrl} alt="" className="w-full h-full object-cover" />
                 </div>
               )}
               <div className="p-3">

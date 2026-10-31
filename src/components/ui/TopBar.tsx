@@ -63,8 +63,8 @@ export function TopBar() {
       style={{
         background: `${themeColors.bg_nav}99`,
         borderBottom: `1px solid ${themeColors.border}`,
-        backdropFilter: "blur(32px) saturate(1.4)",
-        WebkitBackdropFilter: "blur(32px) saturate(1.4)",
+        backdropFilter: "blur(12px) saturate(1.4)",
+        WebkitBackdropFilter: "blur(12px) saturate(1.4)",
       }}>
       <div className="absolute inset-0 pointer-events-none" style={{
         background: `linear-gradient(90deg, ${themeColors.accent}08 0%, transparent 50%, ${themeColors.purple || themeColors.blue}08 100%)`,

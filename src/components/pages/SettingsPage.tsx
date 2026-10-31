@@ -9,6 +9,7 @@ import { Select } from "../ui/Select";
 import { THEMES } from "../../lib/types";
 import { convertFileSrc } from "@tauri-apps/api/tauri";
 import { setNavGuard, clearNavGuard } from "../../lib/navGuard";
+import { confirmDialog } from "../ui/Dialog";
 import {
   Settings as SettingsIcon, Download, Globe, FolderOpen, Bell, Palette,
   Info, RefreshCcw, ExternalLink, Check, X, Save, Image, Film,
@@ -922,8 +923,8 @@ export function SettingsPage() {
                 <GlowButton
                   size="sm"
                   variant="danger"
-                  onClick={() => {
-                    if (!confirm("Clear the Xryloth launcher data? Settings, logs and cached downloads will be reset.")) return;
+                  onClick={async () => {
+                    if (!await confirmDialog("Clear launcher data?", "This will reset settings, logs and cached downloads. This action cannot be undone.", { danger: true, confirmLabel: "Clear Data" })) return;
                     setCleared(true);
                   }}
                   className="flex items-center gap-1"
@@ -965,7 +966,7 @@ export function SettingsPage() {
 
       {/* Unsaved changes leave prompt */}
       {showLeavePrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#090B0E]/60 backdrop-blur-sm">
           <div className="w-[380px] rounded-2xl p-6 text-center" style={{ background: themeColors.bg_card, border: `1px solid ${themeColors.border_accent}50`, boxShadow: `0 20px 60px ${themeColors.accent}20` }}>
             <div className="mx-auto mb-3 w-12 h-12 rounded-full flex items-center justify-center" style={{ background: `${themeColors.warn}20`, color: themeColors.warn }}>
               <AlertTriangle size={24} />
@@ -988,7 +989,7 @@ export function SettingsPage() {
 
       {/* Uninstall confirmation */}
       {showUninstall && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#090B0E]/60 backdrop-blur-sm">
           <div className="w-[440px] rounded-2xl p-6" style={{ background: themeColors.bg_card, border: `1px solid ${themeColors.danger}50`, boxShadow: `0 20px 60px ${themeColors.danger}20` }}>
             <div className="mx-auto mb-3 w-12 h-12 rounded-full flex items-center justify-center" style={{ background: `${themeColors.danger}20`, color: themeColors.danger }}>
               <AlertTriangle size={24} />

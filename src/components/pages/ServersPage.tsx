@@ -1,3 +1,4 @@
+import { CachedImage } from "../ui/CachedImage";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLauncherStore } from "../../stores";
 import { api } from "../../lib/api";
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import type { ModrinthHit } from "../../lib/types";
 import { publishServer, unpublishServer, type PublicServer } from "../../lib/publicServers";
+import { confirmDialog, promptDialog } from "../ui/Dialog";
 
 type LocalServer = {
   name: string;
@@ -624,7 +626,7 @@ export function ServersPage() {
     setBusy(null);
   };
   const deleteServer = async (name: string) => {
-    if (!window.confirm(`Delete server "${name}"?\nThis permanently removes its world and files.`)) return;
+    if (!await confirmDialog(`Delete server "${name}"?`, "This permanently removes its world and files. This action cannot be undone.", { danger: true, confirmLabel: "Delete Server" })) return;
     setBusy("delete");
     try {
       await removePublic(name);
@@ -661,9 +663,9 @@ export function ServersPage() {
     }
   };
 
-  const playerAction = (action: string, needsName: boolean, extra?: string) => {
+  const playerAction = async (action: string, needsName: boolean, extra?: string) => {
     if (needsName) {
-      const name = window.prompt("Player name:");
+      const name = await promptDialog("Player Name", "Enter the player name for this action:", { placeholder: "Player name", confirmLabel: "Submit" });
       if (!name) return;
       sendCommand(extra ? `${action} ${name} ${extra}` : `${action} ${name}`);
     } else {
@@ -821,7 +823,7 @@ export function ServersPage() {
   };
   const deleteEntry = async (entry: FileEntry) => {
     if (!selected) return;
-    if (!window.confirm(`Delete "${entry.name}"?${entry.is_dir ? " This removes the whole folder." : ""}`)) return;
+    if (!await confirmDialog(`Delete "${entry.name}"?`, entry.is_dir ? "This removes the whole folder and everything inside it. This action cannot be undone." : "This file will be permanently deleted. This action cannot be undone.", { danger: true, confirmLabel: "Delete" })) return;
     try {
       const r = await api.serverMgr.fileDelete(selected, fileFullPath(entry.name));
       if (r.error) showNotice("err", r.error); else { showNotice("ok", "Deleted."); loadFiles(selected, filePath); }
@@ -829,7 +831,7 @@ export function ServersPage() {
   };
   const renameEntry = async (entry: FileEntry) => {
     if (!selected) return;
-    const nn = window.prompt(`Rename "${entry.name}" to:`, entry.name);
+    const nn = await promptDialog(`Rename "${entry.name}"`, "Enter the new name for this item:", { defaultValue: entry.name, confirmLabel: "Rename" });
     if (!nn || nn === entry.name) return;
     try {
       const r = await api.serverMgr.fileRename(selected, fileFullPath(entry.name), nn);
@@ -853,13 +855,13 @@ export function ServersPage() {
   };
   const newFolder = async () => {
     if (!selected) return;
-    const name = window.prompt("New folder name:");
+    const name = await promptDialog("New Folder", "Enter a name for the new folder:", { placeholder: "New folder name", confirmLabel: "Create" });
     if (!name) return;
     try { await api.serverMgr.fileMkdir(selected, fileFullPath(name)); loadFiles(selected, filePath); } catch (e: any) { showNotice("err", String(e)); }
   };
   const newTextFile = async () => {
     if (!selected) return;
-    const name = window.prompt("New file name (e.g. ops.json):");
+    const name = await promptDialog("New File", "Enter a name for the new file (e.g. ops.json):", { placeholder: "File name", confirmLabel: "Create" });
     if (!name) return;
     try {
       const r = await api.serverMgr.fileWrite(selected, fileFullPath(name), "");
@@ -871,7 +873,7 @@ export function ServersPage() {
   });
   const bulkDeleteFiles = async () => {
     if (!selected || selectedFiles.size === 0) return;
-    if (!window.confirm(`Delete ${selectedFiles.size} selected item(s)?`)) return;
+    if (!await confirmDialog(`Delete ${selectedFiles.size} selected item(s)?`, "The selected items will be permanently deleted. This action cannot be undone.", { danger: true, confirmLabel: "Delete Selected" })) return;
     let ok = 0;
     for (const n of Array.from(selectedFiles)) {
       try { const r = await api.serverMgr.fileDelete(selected, fileFullPath(n)); if (!r.error) ok++; } catch {}
@@ -923,7 +925,7 @@ export function ServersPage() {
   };
   const restoreBackup = async (file: string) => {
     if (!selected) return;
-    if (!window.confirm(`Restore "${file}"? Current files will be overwritten (server must be stopped).`)) return;
+    if (!await confirmDialog(`Restore "${file}"?`, "Current files will be overwritten. Make sure the server is stopped before restoring. Continue?", { danger: true, confirmLabel: "Restore" })) return;
     setBackupBusy(file);
     try {
       const r = await api.serverMgr.backupRestore(selected, file);
@@ -933,13 +935,13 @@ export function ServersPage() {
   };
   const deleteBackup = async (file: string) => {
     if (!selected) return;
-    if (!window.confirm(`Delete backup "${file}"?`)) return;
+    if (!await confirmDialog(`Delete backup "${file}"?`, "This backup will be permanently deleted. This action cannot be undone.", { danger: true, confirmLabel: "Delete Backup" })) return;
     try { await api.serverMgr.backupDelete(selected, file); loadBackups(selected); } catch (e: any) { showNotice("err", String(e)); }
   };
 
   const deleteWorld = async (world: string) => {
     if (!selected) return;
-    if (!window.confirm(`Delete world "${world}"? This cannot be undone.`)) return;
+    if (!await confirmDialog(`Delete world "${world}"?`, "This cannot be undone. All terrain, builds and entities in this world will be lost.", { danger: true, confirmLabel: "Delete World" })) return;
     try {
       const r = await api.serverMgr.deleteWorld(selected, world);
       if (r.error) showNotice("err", r.error); else { showNotice("ok", "World deleted."); loadWorlds(selected); }
@@ -1020,7 +1022,7 @@ export function ServersPage() {
     if (!selected) return;
     if (running) { showNotice("err", "Stop the server first."); return; }
     const label = world ? `world "${world}"` : "all worlds";
-    if (!window.confirm(`Regenerate ${label}? The current world data will be permanently deleted.`)) return;
+    if (!await confirmDialog(`Regenerate ${label}?`, "The current world data will be permanently deleted and a fresh world will be generated. This action cannot be undone.", { danger: true, confirmLabel: "Regenerate" })) return;
     try {
       const r = await api.serverMgr.resetWorld(selected, world);
       if (r.error) showNotice("err", r.error);
@@ -1316,7 +1318,7 @@ export function ServersPage() {
                     <GlassCard key={mod.slug}>
                       <div className="flex items-start gap-3">
                         {mod.icon_url
-                          ? <img src={mod.icon_url} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
+                          ? <CachedImage src={mod.icon_url} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
                           : <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,0.05)" }}><Puzzle size={14} style={{ color: themeColors.text_muted }} /></div>}
                         <div className="flex-1 min-w-0">
                           <h3 className="tinycaps text-sm font-semibold truncate" style={{ color: themeColors.text_main }}>{mod.title}</h3>
@@ -1498,7 +1500,7 @@ export function ServersPage() {
                       <label className="text-[10px] mb-1 block tinycaps" style={{ color: themeColors.text_sub }}>Server Icon</label>
                       <div className="flex items-center gap-2">
                         <div className="w-9 h-9 rounded-lg flex items-center justify-center overflow-hidden shrink-0" style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${themeColors.border}` }}>
-                          {iconData ? <img src={iconData} alt="" className="w-full h-full object-cover" /> : <ImageIcon size={15} style={{ color: themeColors.text_muted }} />}
+                          {iconData ? <CachedImage src={iconData} alt="" className="w-full h-full object-cover" /> : <ImageIcon size={15} style={{ color: themeColors.text_muted }} />}
                         </div>
                         <GlowButton size="sm" variant="secondary" onClick={() => iconInputRef.current?.click()} className="flex items-center gap-1"><Upload size={12} /> Upload</GlowButton>
                         <input ref={iconInputRef} type="file" accept="image/png" className="hidden" onChange={onIconUpload} />
@@ -1691,7 +1693,7 @@ export function ServersPage() {
 
       {/* Create modal */}
       {showCreate && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#090B0E]/70 backdrop-blur-sm">
           <div className="w-[540px] max-w-[94vw] max-h-[90vh] overflow-y-auto rounded-2xl p-6" style={{ background: themeColors.bg_card, border: `1px solid ${themeColors.border_accent}50`, boxShadow: `0 20px 60px ${themeColors.accent}20` }}>
             <div className="flex items-center gap-2 mb-4">
               <Server size={18} style={{ color: themeColors.accent }} />
@@ -1825,7 +1827,7 @@ export function ServersPage() {
 
       {/* Clone modal */}
       {showClone && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#090B0E]/70 backdrop-blur-sm">
           <div className="w-[440px] max-w-[94vw] rounded-2xl p-6" style={{ background: themeColors.bg_card, border: `1px solid ${themeColors.border_accent}50` }}>
             <div className="flex items-center gap-2 mb-4">
               <Copy size={18} style={{ color: themeColors.accent }} />
@@ -1852,7 +1854,7 @@ export function ServersPage() {
 
       {/* Change version modal */}
       {showReinstall && current && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#090B0E]/70 backdrop-blur-sm">
           <div className="w-[460px] max-w-[94vw] rounded-2xl p-6" style={{ background: themeColors.bg_card, border: `1px solid ${themeColors.accent}50` }}>
             <div className="flex items-center gap-2 mb-4">
               <RefreshCw size={18} style={{ color: themeColors.accent }} />
@@ -1884,21 +1886,21 @@ export function ServersPage() {
 
       {/* Image preview modal */}
       {imagePreview && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => setImagePreview(null)}>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#090B0E]/80 backdrop-blur-sm" onClick={() => setImagePreview(null)}>
           <div className="rounded-2xl p-4 max-w-[90vw] max-h-[90vh] flex flex-col items-center gap-3" style={{ background: themeColors.bg_card, border: `1px solid ${themeColors.border}` }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 w-full">
               <ImageIcon size={16} style={{ color: themeColors.accent }} />
               <h2 className="tinycaps text-sm font-bold truncate flex-1" style={{ color: themeColors.text_main }}>{imagePreview.path}</h2>
               <button onClick={() => setImagePreview(null)} style={{ color: themeColors.text_muted }}><X size={18} /></button>
             </div>
-            <img src={imagePreview.url} alt="" className="max-w-full max-h-[70vh] rounded-lg object-contain" style={{ imageRendering: "pixelated", background: `${themeColors.bg_card2}` }} />
+            <CachedImage src={imagePreview.url} alt="" className="max-w-full max-h-[70vh] rounded-lg object-contain" style={{ imageRendering: "pixelated", background: `${themeColors.bg_card2}` }} />
           </div>
         </div>
       )}
 
       {/* File editor */}
       {editingFile && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#090B0E]/70 backdrop-blur-sm">
           <div className="w-[720px] max-w-[94vw] h-[70vh] flex flex-col rounded-2xl p-5" style={{ background: themeColors.bg_card, border: `1px solid ${themeColors.border_accent}50` }}>
             <div className="flex items-center gap-2 mb-3">
               <FileText size={16} style={{ color: themeColors.accent }} />
@@ -1918,7 +1920,7 @@ export function ServersPage() {
 
       {/* Plugin compatibility warning */}
       {pluginWarn && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#090B0E]/60 backdrop-blur-sm">
           <div className="w-[420px] max-w-[92vw] rounded-2xl p-6" style={{ background: themeColors.bg_card, border: `1px solid ${themeColors.danger}55` }}>
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: `${themeColors.danger}20`, color: themeColors.danger }}><AlertCircle size={20} /></div>

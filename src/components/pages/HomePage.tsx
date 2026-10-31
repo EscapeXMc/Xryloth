@@ -1,3 +1,4 @@
+import { CachedImage } from "../ui/CachedImage";
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLauncherStore } from "../../stores";
@@ -250,8 +251,8 @@ export function HomePage() {
         <div className="absolute inset-0 pointer-events-none opacity-[0.05]" style={{
           backgroundImage: "linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)",
           backgroundSize: "42px 42px",
-          maskImage: "radial-gradient(70% 60% at 50% 110%, #000 0%, transparent 75%)",
-          WebkitMaskImage: "radial-gradient(70% 60% at 50% 110%, #000 0%, transparent 75%)",
+          maskImage: "radial-gradient(70% 60% at 50% 110%, #090B0E 0%, transparent 75%)",
+          WebkitMaskImage: "radial-gradient(70% 60% at 50% 110%, #090B0E 0%, transparent 75%)",
         }} />
 
         <div className="relative flex items-stretch gap-6 p-7 flex-wrap">
@@ -299,7 +300,7 @@ export function HomePage() {
                     <motion.div
                       initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
                       className="absolute left-0 mt-2 rounded-2xl overflow-hidden z-50 min-w-[240px]"
-                      style={{ background: `${e.bg_card}f5`, border: `1px solid ${e.border_bright}`, backdropFilter: "blur(24px)" }}
+                      style={{ background: `${e.bg_card}f5`, border: `1px solid ${e.border_bright}`, backdropFilter: "blur(12px)" }}
                     >
                       <div className="max-h-64 overflow-y-auto py-1">
                         {recent.map((inst: any) => (
@@ -338,7 +339,7 @@ export function HomePage() {
               filter: "blur(5px)",
             }} />
             {skinOk ? (
-              <img
+              <CachedImage
                 src={skinUrl(uuid)}
                 alt=""
                 className="relative h-[212px] object-contain"
@@ -346,7 +347,7 @@ export function HomePage() {
                 onError={() => setSkinOk(false)}
               />
             ) : (
-              <img
+              <CachedImage
                 src={avatarUrl(uuid)}
                 alt=""
                 className="relative w-[120px] rounded-2xl mb-6"
@@ -376,8 +377,8 @@ export function HomePage() {
                 style={{
                   background: `${e.bg_card}88`,
                   border: `1px solid ${e.border}`,
-                  backdropFilter: "blur(20px)",
-                  WebkitBackdropFilter: "blur(20px)",
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
                 }}
               >
                 <div className="flex items-center gap-2">
@@ -447,7 +448,7 @@ export function HomePage() {
                   >
                     <div className="h-28 overflow-hidden" style={{ background: "linear-gradient(135deg, #1a1a1e, #0b0b0d)" }}>
                       {it.image && (
-                        <img
+                        <CachedImage
                           src={it.image}
                           alt=""
                           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
@@ -491,7 +492,7 @@ export function HomePage() {
                   <div key={f.uuid || f.username} className="flex items-center gap-2 px-2 py-1.5 rounded-xl"
                     style={{ background: e.bg_card2, border: `1px solid ${e.border}` }}>
                     <span className="w-5 h-5 rounded-full overflow-hidden shrink-0" style={{ background: `${e.accent}20` }}>
-                      <img src={avatarUrl(f.uuid)} alt="" className="w-full h-full object-contain" style={{ imageRendering: "pixelated" }} />
+                      <CachedImage src={avatarUrl(f.uuid)} alt="" className="w-full h-full object-contain" style={{ imageRendering: "pixelated" }} />
                     </span>
                     <span className="text-[10px] font-semibold" style={{ color: e.text_main }}>{f.username}</span>
                     <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#22c55e" }} />
@@ -554,7 +555,7 @@ export function HomePage() {
                 return (
                   <div key={key} className="flex items-center gap-2.5 p-2 rounded-xl" style={{ background: `${e.bg_card}66`, border: `1px solid ${e.border}` }}>
                     {p.logo
-                      ? <img src={p.logo} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" style={{ border: `1px solid ${e.border}` }} />
+                      ? <CachedImage src={p.logo} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" style={{ border: `1px solid ${e.border}` }} />
                       : <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${e.bg_hover}77`, border: `1px solid ${e.border}` }}><Award size={13} style={{ color: e.text_sub }} /></div>}
                     <div className="flex-1 min-w-0">
                       <p className="text-[11px] font-bold truncate" style={{ color: e.text_main }}>{p.name}</p>
@@ -650,7 +651,7 @@ export function HomePage() {
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                   <div className="grid grid-cols-2 gap-2 mt-3">
                     {devTools.map((dt) => (
-                      <button key={dt.name} onClick={() => { o(""); a(dt.page); l(false); }}
+                      <button key={dt.name} onClick={() => { o(null); a(dt.page); l(false); }}
                         className="p-2.5 rounded-xl text-left transition-colors hover:bg-white/[0.06]"
                         style={{ background: `${e.bg_card}66`, border: `1px solid ${e.border}` }}>
                         <dt.icon size={15} style={{ color: e.text_main }} />

@@ -1,3 +1,4 @@
+import { CachedImage } from "../ui/CachedImage";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLauncherStore } from "../../stores";
@@ -6,6 +7,7 @@ import { GlowButton } from "../ui/GlowButton";
 import { GlassInput } from "../ui/FormControls";
 import { Select } from "../ui/Select";
 import { useToast } from "../ui/Toast";
+import { confirmDialog } from "../ui/Dialog";
 import {
   Megaphone, Bell, Rocket, PartyPopper, Send, Trash2, Image as ImageIcon,
   Video, Upload, Users, Radio, ShieldAlert, Info, Clock,
@@ -135,7 +137,7 @@ export function AnnouncementsPage() {
 
   const remove = async (a: Announcement) => {
     if (!a.id) return;
-    if (!window.confirm("Delete this announcement for everyone?")) return;
+    if (!await confirmDialog("Delete announcement?", "This will permanently delete this announcement for everyone. This action cannot be undone.", { danger: true, confirmLabel: "Delete" })) return;
     const res = await deleteAnnouncement(a.id);
     if (res.ok) toast("success", "Deleted");
     else toast("error", "Delete failed", res.error);
@@ -248,7 +250,7 @@ export function AnnouncementsPage() {
                     {mediaUrl && <span className="text-[10px] truncate" style={{ color: themeColors.text_muted }}>Media attached ✓</span>}
                   </div>
                   {mediaUrl && mediaType === "image" && (
-                    <img src={mediaUrl} alt="" className="max-h-32 rounded-lg" style={{ border: `1px solid ${themeColors.border}` }} />
+                    <CachedImage src={mediaUrl} alt="" className="max-h-32 rounded-lg" style={{ border: `1px solid ${themeColors.border}` }} />
                   )}
                   {mediaUrl && mediaType === "video" && (
                     <video src={mediaUrl} controls muted className="max-h-32 rounded-lg" style={{ border: `1px solid ${themeColors.border}` }} />
@@ -346,7 +348,7 @@ export function AnnouncementsPage() {
                             {a.mediaType === "video" ? (
                               <video src={a.mediaUrl} controls muted loop playsInline className="w-full max-h-72 rounded-xl" style={{ border: `1px solid ${themeColors.border}` }} />
                             ) : (
-                              <img src={a.mediaUrl} alt="" className="w-full max-h-72 object-contain rounded-xl" style={{ border: `1px solid ${themeColors.border}` }} />
+                              <CachedImage src={a.mediaUrl} alt="" className="w-full max-h-72 object-contain rounded-xl" style={{ border: `1px solid ${themeColors.border}` }} />
                             )}
                           </div>
                         )}

@@ -1,9 +1,11 @@
+import { CachedImage } from "../ui/CachedImage";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLauncherStore } from "../../stores";
 import { GlassCard } from "../ui/GlassCard";
 import { GlowButton } from "../ui/GlowButton";
 import { GlassInput } from "../ui/FormControls";
+import { alertDialog } from "../ui/Dialog";
 import {
   MessageSquare, Send, LogOut, Upload, UserPlus, Users,
   Circle, Clock, Swords, ChevronDown, X, AtSign, Bell,
@@ -37,8 +39,10 @@ import {
   subscribeToDMs,
   subscribeToMessagesByChannel,
   getUserByUsername,
+  setUserStatus,
 } from "../../lib/chatService";
-import type { ChatUser, ChatMessage, ChatChannel } from "../../lib/chatService";
+import type { ChatUser, ChatMessage, ChatChannel, PresenceStatus } from "../../lib/chatService";
+import { ADMIN_EMAIL } from "../../lib/auth";
 import { invoke } from "@tauri-apps/api/tauri";
 
 const STEVE_HEAD = "https://mc-heads.net/avatar/Steve/64";
@@ -98,6 +102,65 @@ function formatTime(ts: number): string {
   return `${d.toLocaleDateString([], { month: "short", day: "numeric" })} ${time}`;
 }
 
+/* ===================== GAMING HUB: ROLES & BADGES ===================== */
+type RoleKey = "OWNER" | "ADMIN" | "DEV" | "PARTNER" | "VIP" | null;
+
+const ROLE_BADGES: Record<Exclude<RoleKey, null>, { label: string; cls: string }> = {
+  OWNER:   { label: "OWNER",   cls: "bg-amber-500/20 text-amber-300 border-amber-400/40" },
+  ADMIN:   { label: "ADMIN",   cls: "bg-orange-500/20 text-orange-400 border-orange-500/40" },
+  DEV:     { label: "DEV",     cls: "bg-purple-500/20 text-purple-400 border-purple-500/40" },
+  PARTNER: { label: "PARTNER", cls: "bg-sky-500/20 text-sky-400 border-sky-500/40" },
+  VIP:     { label: "VIP",     cls: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40" },
+};
+
+// Lightweight staff map (extend here). Case-insensitive usernames.
+const STAFF_ROLES: Record<string, RoleKey> = {
+  xryloth_client: "OWNER",
+  escapexog: "ADMIN",
+  raghuwinder: "DEV",
+};
+
+/** Derive a role badge for a user (by known staff username or admin email). */
+function roleForUser(username?: string, email?: string): RoleKey {
+  const u = (username || "").trim().toLowerCase();
+  if (STAFF_ROLES[u]) return STAFF_ROLES[u];
+  if (email && email.trim().toLowerCase() === ADMIN_EMAIL) return "ADMIN";
+  return null;
+}
+
+function RoleBadge({ role, className = "" }: { role: RoleKey; className?: string }) {
+  if (!role) return null;
+  const b = ROLE_BADGES[role];
+  return (
+    <span
+      className={`px-1 py-[1px] rounded text-[8px] font-black tracking-wider border ${b.cls} ${className}`}
+    >
+      {b.label}
+    </span>
+  );
+}
+
+/* ===================== MINECRAFT EMOTES / SHORTCODES ===================== */
+// Shortcode -> emoji. Rendered inline in message bubbles + quick-insert bar.
+const MC_EMOTES: Record<string, string> = {
+  ":grass:": "🌿",
+  ":diamond:": "💎",
+  ":creeper:": "💚",
+  ":pickaxe:": "⛏️",
+  ":sword:": "🗡️",
+  ":heart:": "❤️",
+  ":star:": "⭐",
+  ":fire:": "🔥",
+  ":skull:": "💀",
+  ":pig:": "🐷",
+  ":cows:": "🐄",
+  ":chicken:": "🐔",
+  ":apple:": "🍎",
+  ":gold:": "🪙",
+  ":gg:": "🎉",
+};
+const MC_EMOTE_KEYS = Object.keys(MC_EMOTES);
+
 export function ChatPage() {
   const { themeColors } = useLauncherStore();
 
@@ -138,6 +201,7 @@ export function ChatPage() {
   const [dmTarget, setDmTarget] = useState<string>("");
   const [dmMessages, setDmMessages] = useState<ChatMessage[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
+  const [showEmoteBar, setShowEmoteBar] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<ChatMessage[]>([]);
   const [showSearch, setShowSearch] = useState(false);
@@ -146,6 +210,11 @@ export function ChatPage() {
   const [newChannelDesc, setNewChannelDesc] = useState("");
   const [newDMUser, setNewDMUser] = useState("");
   const [activeView, setActiveView] = useState<"chat" | "channels" | "dms">("chat");
+  // Header presence switcher (Online / Away / Do Not Disturb)
+  const [myStatus, setMyStatus] = useState<PresenceStatus>("online");
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+  // Online-user profile mini-card
+  const [profileCard, setProfileCard] = useState<{ user: ChatUser; x: number; y: number } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -484,7 +553,7 @@ export function ChatPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
-      alert("Image must be under 5MB");
+      alertDialog("Image Too Large", "Image must be under 5MB. Please choose a smaller file.");
       return;
     }
     const result = await uploadProfileImage(file);
@@ -644,6 +713,106 @@ const currentUser = user as ChatUser;
   // ── Chat Interface ──
   const onlineCount = onlineUsers.filter((u) => u.status === "online").length;
 
+  // Presence ping color (online / away / dnd / offline)
+  const statusColorOf = (s?: string) =>
+    s === "online"
+      ? themeColors.success
+      : s === "away"
+      ? themeColors.warn || "#eab308"
+      : s === "dnd"
+      ? themeColors.danger
+      : themeColors.text_muted;
+
+  // Categorized member groups for the community panel (current user shown separately)
+  const isStaffRole = (u: ChatUser) => {
+    const r = roleForUser(u.username, u.email);
+    return r === "DEV" || r === "ADMIN" || r === "OWNER";
+  };
+  const devGroup = onlineUsers.filter((u) => u.uid !== currentUser.uid && roleForUser(u.username, u.email) === "DEV");
+  const adminGroup = onlineUsers.filter((u) => {
+    const r = roleForUser(u.username, u.email);
+    return u.uid !== currentUser.uid && (r === "ADMIN" || r === "OWNER");
+  });
+  const playerGroup = onlineUsers.filter(
+    (u) => u.uid !== currentUser.uid && !isStaffRole(u)
+  );
+
+  // Opens the profile mini-card anchored near the click point
+  const openProfileCard = (u: ChatUser, e: React.MouseEvent) => {
+    setProfileCard({ user: u, x: e.clientX, y: e.clientY });
+  };
+
+  // Render a single member row in the community panel
+  const renderMemberRow = (u: ChatUser) => {
+    const role = roleForUser(u.username, u.email);
+    const isMe = u.uid === currentUser.uid;
+    return (
+      <motion.button
+        key={u.uid}
+        initial={{ opacity: 0, x: 8 }}
+        animate={{ opacity: 1, x: 0 }}
+        onClick={(e) => openProfileCard(u, e)}
+        className="w-full text-left px-2.5 py-1.5 flex items-center gap-2 mx-1 rounded-lg transition-colors cursor-pointer"
+        style={{
+          background: isMe ? `${themeColors.accent}12` : "transparent",
+          border: "none",
+        }}
+        onMouseEnter={(e) => {
+          if (!isMe) e.currentTarget.style.background = themeColors.bg_hover;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = isMe ? `${themeColors.accent}12` : "transparent";
+        }}
+      >
+        <div className="relative shrink-0">
+          <CachedImage
+            src={u.photoURL || STEVE_HEAD}
+            alt=""
+            className="w-6 h-6 rounded-md object-cover"
+            style={{ border: `1.5px solid ${statusColorOf(u.status)}40` }}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = STEVE_HEAD;
+            }}
+          />
+          <div
+            className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full"
+            style={{
+              background: statusColorOf(u.status),
+              border: `1.5px solid ${themeColors.bg_card}`,
+            }}
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p
+            className="text-[11px] font-medium truncate"
+            style={{ color: isMe ? themeColors.accent : themeColors.text_main }}
+          >
+            {u.username}
+            {isMe && (
+              <span className="text-[9px] ml-1" style={{ color: themeColors.text_muted }}>
+                (you)
+              </span>
+            )}
+          </p>
+        </div>
+        <RoleBadge role={role} />
+      </motion.button>
+    );
+  };
+
+  const renderGroup = (label: string, list: ChatUser[], tint: string) =>
+    list.length === 0 ? null : (
+      <div className="mb-1">
+        <p
+          className="px-3.5 pt-2 pb-1 tinycaps text-[8px] font-bold tracking-wider"
+          style={{ color: tint }}
+        >
+          {label} — {list.length}
+        </p>
+        {list.map(renderMemberRow)}
+      </div>
+    );
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <input
@@ -671,16 +840,55 @@ const currentUser = user as ChatUser;
                Chat
              </h1>
            </div>
-           <div
-             className="flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-lg"
-             style={{
-               background: `${themeColors.success}12`,
-               color: themeColors.success,
-               border: `1px solid ${themeColors.success}25`,
-             }}
-           >
-             <Circle size={6} fill={themeColors.success} />
-             {onlineCount} online
+           {/* Status switcher (Online / Away / DND) */}
+           <div className="relative">
+             <button
+               onClick={() => setShowStatusMenu((v) => !v)}
+               className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-lg transition-colors cursor-pointer"
+               style={{
+                 background: `${myStatus === "online" ? themeColors.success : myStatus === "away" ? (themeColors.warn || "#eab308") : themeColors.danger}12`,
+                 color: myStatus === "online" ? themeColors.success : myStatus === "away" ? (themeColors.warn || "#eab308") : themeColors.danger,
+                 border: `1px solid ${myStatus === "online" ? themeColors.success : myStatus === "away" ? (themeColors.warn || "#eab308") : themeColors.danger}25`,
+               }}
+               title="Set your status"
+             >
+               <Circle size={6} fill="currentColor" />
+               <span className="capitalize font-bold">{myStatus === "dnd" ? "Do Not Disturb" : myStatus}</span>
+               <span className="opacity-60">· {onlineCount} online</span>
+               <ChevronDown size={10} className={showStatusMenu ? "rotate-180 transition-transform" : "transition-transform"} />
+             </button>
+             <AnimatePresence>
+               {showStatusMenu && (
+                 <motion.div
+                   initial={{ opacity: 0, y: -4 }}
+                   animate={{ opacity: 1, y: 0 }}
+                   exit={{ opacity: 0, y: -4 }}
+                   className="absolute top-full left-0 mt-1 z-40 w-44 rounded-xl overflow-hidden shadow-2xl backdrop-blur-xl"
+                   style={{ background: themeColors.bg_card2, border: `1px solid ${themeColors.border}` }}
+                 >
+                   {([
+                     { k: "online", label: "Online", c: themeColors.success },
+                     { k: "away", label: "Away", c: themeColors.warn || "#eab308" },
+                     { k: "dnd", label: "Do Not Disturb", c: themeColors.danger },
+                   ] as { k: PresenceStatus; label: string; c: string }[]).map((s) => (
+                     <button
+                       key={s.k}
+                       onClick={() => {
+                         setMyStatus(s.k);
+                         setShowStatusMenu(false);
+                         try { setUserStatus(s.k); } catch {}
+                       }}
+                       className="w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] transition-colors hover:bg-white/5"
+                       style={{ color: myStatus === s.k ? s.c : themeColors.text_main }}
+                     >
+                       <Circle size={7} fill={s.c} />
+                       <span className="font-semibold">{s.label}</span>
+                       {myStatus === s.k && <CheckCheck size={11} className="ml-auto" />}
+                     </button>
+                   ))}
+                 </motion.div>
+               )}
+             </AnimatePresence>
            </div>
          </div>
 
@@ -752,7 +960,7 @@ const currentUser = user as ChatUser;
              className="relative cursor-pointer"
              title="Change avatar"
            >
-             <img
+             <CachedImage
                src={currentUser.photoURL || STEVE_HEAD}
                alt=""
                className="w-7 h-7 rounded-lg object-cover"
@@ -890,7 +1098,7 @@ const currentUser = user as ChatUser;
                          }}
                        >
                          <div className="relative shrink-0">
-                           <img
+                           <CachedImage
                              src={u.photoURL || STEVE_HEAD}
                              alt=""
                              className="w-6 h-6 rounded-md object-cover"
@@ -984,6 +1192,69 @@ const currentUser = user as ChatUser;
                 <UserPlus size={14} />
               </motion.button>
 
+              {/* MC emote quick-insert toggle */}
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setShowEmoteBar((v) => !v)}
+                className="p-2 rounded-xl transition-colors shrink-0 cursor-pointer"
+                style={{
+                  background: showEmoteBar ? `${themeColors.accent}20` : `${themeColors.accent}12`,
+                  color: themeColors.accent,
+                  border: `1px solid ${themeColors.accent}25`,
+                }}
+                title="Minecraft emotes"
+              >
+                <Smile size={14} />
+              </motion.button>
+
+              {/* MC emote quick-insert bar */}
+              <AnimatePresence>
+                {showEmoteBar && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 6 }}
+                    className="absolute bottom-full left-0 right-0 mb-2 z-30 p-2 rounded-xl"
+                    style={{
+                      background: themeColors.bg_card2,
+                      border: `1px solid ${themeColors.accent}30`,
+                      boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 24px ${themeColors.accent}15`,
+                      backdropFilter: "blur(12px)",
+                    }}
+                  >
+                    <p
+                      className="tinycaps text-[9px] font-bold mb-1.5 px-1"
+                      style={{ color: themeColors.text_muted }}
+                    >
+                      Minecraft Emotes
+                    </p>
+                    <div className="grid grid-cols-8 gap-1">
+                      {MC_EMOTE_KEYS.map((code) => (
+                        <button
+                          key={code}
+                          title={code}
+                          onClick={() => {
+                            setInputText((prev) => `${prev}${prev && !prev.endsWith(" ") ? " " : ""}${code} `);
+                            inputRef.current?.focus();
+                          }}
+                          className="flex flex-col items-center justify-center py-1 rounded-lg transition-colors cursor-pointer hover:bg-white/5"
+                          style={{ border: "none", background: "transparent" }}
+                        >
+                          <span className="text-base leading-none">{MC_EMOTES[code]}</span>
+                          <span
+                            className="text-[7px] mt-0.5 font-mono"
+                            style={{ color: themeColors.text_muted }}
+                          >
+                            {code.replace(/:/g, "")}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
             <div className="relative flex-1">
               <GlassInput
                 ref={inputRef}
@@ -1005,7 +1276,7 @@ const currentUser = user as ChatUser;
                     background: themeColors.bg_card2,
                     border: `1px solid ${themeColors.accent}30`,
                     boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 24px ${themeColors.accent}15`,
-                    backdropFilter: "blur(16px)",
+                    backdropFilter: "blur(12px)",
                   }}
                 >
                   <div
@@ -1026,7 +1297,7 @@ const currentUser = user as ChatUser;
                         border: "none",
                       }}
                     >
-                      <img
+                      <CachedImage
                         src={u.photoURL || STEVE_HEAD}
                         alt=""
                         className="w-5 h-5 rounded-md object-cover shrink-0"
@@ -1077,13 +1348,13 @@ const currentUser = user as ChatUser;
                 className="tinycaps text-[11px] font-bold"
                 style={{ color: themeColors.text_main }}
               >
-                Online
+                Community
               </span>
               <span
                 className="text-[9px] ml-auto"
                 style={{ color: themeColors.text_muted }}
               >
-                {onlineUsers.length}
+                {onlineCount}/{onlineUsers.length}
               </span>
             </div>
 
@@ -1106,82 +1377,161 @@ const currentUser = user as ChatUser;
                   </p>
                 </div>
               ) : (
-                onlineUsers.map((u) => (
-                  <motion.div
-                    key={u.uid}
-                    initial={{ opacity: 0, x: 8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="px-2.5 py-1.5 flex items-center gap-2 mx-1 rounded-lg transition-colors"
-                    style={{
-                      background:
-                        u.uid === currentUser.uid
-                          ? `${themeColors.accent}12`
-                          : "transparent",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (u.uid !== currentUser.uid)
-                        e.currentTarget.style.background = `${themeColors.bg_hover}`;
-                    }}
-                    onMouseLeave={(e) => {
-                      if (u.uid !== currentUser.uid)
-                        e.currentTarget.style.background = "transparent";
-                    }}
-                  >
-                    <div className="relative shrink-0">
-                      <img
-                        src={u.photoURL || STEVE_HEAD}
-                        alt=""
-                        className="w-6 h-6 rounded-md object-cover"
-                        style={{
-                          border: `1.5px solid ${
-                            u.status === "online"
-                              ? themeColors.success
-                              : themeColors.text_muted
-                          }40`,
-                        }}
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = STEVE_HEAD;
-                        }}
-                      />
-                      <div
-                        className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full"
-                        style={{
-                          background:
-                            u.status === "online"
-                              ? themeColors.success
-                              : themeColors.text_muted,
-                          border: `1.5px solid ${themeColors.bg_card}`,
-                        }}
-                      />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p
-                        className="text-[11px] font-medium truncate"
-                        style={{
-                          color:
-                            u.uid === currentUser.uid
-                              ? themeColors.accent
-                              : themeColors.text_main,
-                        }}
-                      >
-                        {u.username}
-                        {u.uid === currentUser.uid && (
-                          <span
-                            className="text-[9px] ml-1"
-                            style={{ color: themeColors.text_muted }}
-                          >
-                            (you)
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  </motion.div>
-                ))
+                <>
+                  {renderMemberRow(currentUser)}
+                  {renderGroup("Developers", devGroup, themeColors.purple || "#a855f7")}
+                  {renderGroup("Admins", adminGroup, themeColors.accent)}
+                  {renderGroup("Online Players", playerGroup, themeColors.success)}
+                </>
               )}
             </div>
           </GlassCard>
         </div>
       </div>
+
+      {/* User Profile Mini-Card (context menu on member click) */}
+      <AnimatePresence>
+        {profileCard && (
+          <>
+            {/* Backdrop to dismiss */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[90]"
+              onClick={() => setProfileCard(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: -6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: -6 }}
+              transition={{ type: "spring", stiffness: 380, damping: 28 }}
+              className="fixed z-[95] w-60 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl"
+              style={{
+                left: Math.min(profileCard.x, window.innerWidth - 260),
+                top: Math.min(profileCard.y, window.innerHeight - 240),
+                background: themeColors.bg_card2,
+                border: `1px solid ${themeColors.border}`,
+                boxShadow: `0 16px 48px rgba(0,0,0,0.6), 0 0 24px ${themeColors.accent}15`,
+              }}
+            >
+              {/* Banner */}
+              <div
+                className="h-12 relative"
+                style={{
+                  background: `linear-gradient(135deg, ${themeColors.accent}30, ${
+                    themeColors.purple || themeColors.blue || "#7c3aed"
+                  }30)`,
+                }}
+              >
+                <div
+                  className="absolute inset-0 opacity-20"
+                  style={{
+                    backgroundImage:
+                      "radial-gradient(circle at 30% 40%, rgba(255,255,255,0.25) 0, transparent 40%)",
+                  }}
+                />
+                <button
+                  onClick={() => setProfileCard(null)}
+                  className="absolute top-1.5 right-1.5 p-1 rounded-lg cursor-pointer"
+                  style={{ background: "rgba(0,0,0,0.3)", color: "#fff", border: "none" }}
+                >
+                  <X size={12} />
+                </button>
+              </div>
+
+              <div className="px-3 pb-3 -mt-6">
+                {/* Skin head avatar */}
+                <CachedImage
+                  src={profileCard.user.photoURL || STEVE_HEAD}
+                  alt=""
+                  className="w-14 h-14 rounded-xl object-cover mb-2"
+                  style={{
+                    border: `2px solid ${statusColorOf(profileCard.user.status)}`,
+                    boxShadow: `0 4px 16px rgba(0,0,0,0.4)`,
+                    background: themeColors.bg_card,
+                  }}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = STEVE_HEAD;
+                  }}
+                />
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span
+                    className="tinycaps text-[13px] font-bold"
+                    style={{ color: themeColors.text_main }}
+                  >
+                    {profileCard.user.username}
+                  </span>
+                  <RoleBadge role={roleForUser(profileCard.user.username, profileCard.user.email)} />
+                </div>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <Circle size={6} fill={statusColorOf(profileCard.user.status)} />
+                  <span
+                    className="text-[10px] capitalize"
+                    style={{ color: statusColorOf(profileCard.user.status) }}
+                  >
+                    {profileCard.user.status || "offline"}
+                  </span>
+                  <span className="text-[10px]" style={{ color: themeColors.text_muted }}>
+                    · Playing on MinePie SMP
+                  </span>
+                </div>
+
+                {/* Action buttons */}
+                <div className="grid grid-cols-2 gap-1.5 mt-3">
+                  <button
+                    onClick={() => {
+                      setDmTarget(profileCard.user.uid);
+                      setActiveView("chat");
+                      setProfileCard(null);
+                    }}
+                    className="flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
+                    style={{
+                      background: `${themeColors.accent}20`,
+                      color: themeColors.accent,
+                      border: `1px solid ${themeColors.accent}35`,
+                    }}
+                  >
+                    <MessageCircle size={12} /> Send DM
+                  </button>
+                  <button
+                    onClick={() => {
+                      setInviteUsername(profileCard.user.username);
+                      setShowInvite(true);
+                      setProfileCard(null);
+                    }}
+                    className="flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
+                    style={{
+                      background: `${themeColors.blue}20`,
+                      color: themeColors.blue,
+                      border: `1px solid ${themeColors.blue}35`,
+                    }}
+                  >
+                    <Swords size={12} /> Invite
+                  </button>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard
+                        .writeText(profileCard.user.uid)
+                        .then(() => alertDialog("UUID Copied", `Copied ${profileCard.user.username}'s UUID to clipboard.`))
+                        .catch(() => {});
+                      setProfileCard(null);
+                    }}
+                    className="col-span-2 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
+                    style={{
+                      background: `${themeColors.bg_hover}`,
+                      color: themeColors.text_sub,
+                      border: `1px solid ${themeColors.border}`,
+                    }}
+                  >
+                    <Tag size={12} /> Copy UUID
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Ping Toast */}
       <AnimatePresence>
@@ -1581,50 +1931,85 @@ const currentUser = user as ChatUser;
  }
 
 // ── Message Bubble Component ──
-function renderMessageText(text: string, themeColors: any, searchQuery?: string) {
-  if (!searchQuery) {
-    const parts = text.split(/(@[a-zA-Z0-9_]+)/g);
-    return parts.map((part, i) => {
-      if (/^@[a-zA-Z0-9_]+$/.test(part)) {
-        return (
-          <span
-            key={i}
-            style={{
-              color: themeColors.accent,
-              fontWeight: 700,
-              background: `${themeColors.accent}12`,
-              borderRadius: 4,
-              padding: "0 3px",
-            }}
-          >
-            {part}
-          </span>
-        );
-      }
-      return part;
-    });
-  }
-  const q = searchQuery.toLowerCase();
-  const parts = text.split(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, "gi"));
-  return parts.map((part, i) => {
-    if (part.toLowerCase() === q) {
-      return (
-        <span key={i} style={{ background: `${themeColors.accent}30`, borderRadius: 2, padding: "0 2px" }}>
-          {part}
+/* ---- Inline rich-text: **bold**, *italic*, `code`, links, @mentions, :emotes: ---- */
+function renderInlineText(text: string, themeColors: any, keyPrefix: string): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  const regex = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*\n]+\*)|(_[^_\n]+_)|(https?:\/\/[^\s]+)|(:[a-z_0-9]+:)|(@[a-zA-Z0-9_]+)/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let idx = 0;
+  while ((m = regex.exec(text)) !== null) {
+    if (m.index > last) nodes.push(text.slice(last, m.index));
+    const tok = m[0];
+    const key = `${keyPrefix}-${idx++}`;
+    if (tok.startsWith("`")) {
+      nodes.push(
+        <code
+          key={key}
+          className="px-1 py-[1px] rounded font-mono text-[11px]"
+          style={{ background: `${themeColors.bg_card2 || "#000"}cc`, border: `1px solid ${themeColors.border}`, color: themeColors.accent }}
+        >
+          {tok.slice(1, -1)}
+        </code>
+      );
+    } else if (tok.startsWith("**")) {
+      nodes.push(<strong key={key} style={{ color: themeColors.text_main, fontWeight: 800 }}>{tok.slice(2, -2)}</strong>);
+    } else if (tok.startsWith("*") || tok.startsWith("_")) {
+      nodes.push(<em key={key} style={{ fontStyle: "italic", color: themeColors.text_main }}>{tok.slice(1, -1)}</em>);
+    } else if (tok.startsWith("http")) {
+      nodes.push(
+        <a key={key} href={tok} target="_blank" rel="noreferrer" className="underline break-all" style={{ color: themeColors.accent }}>
+          {tok}
+        </a>
+      );
+    } else if (MC_EMOTES[tok]) {
+      nodes.push(<span key={key} title={tok} className="mx-[1px] align-middle">{MC_EMOTES[tok]}</span>);
+    } else if (tok.startsWith("@")) {
+      nodes.push(
+        <span key={key} style={{ color: themeColors.accent, fontWeight: 700, background: `${themeColors.accent}12`, borderRadius: 4, padding: "0 3px" }}>
+          {tok}
         </span>
       );
     }
-    const mentionParts = part.split(/(@[a-zA-Z0-9_]+)/g);
-    return mentionParts.map((mp, j) => {
-      if (/^@[a-zA-Z0-9_]+$/.test(mp)) {
-        return (
-          <span key={`${i}-${j}`} style={{ color: themeColors.accent, fontWeight: 700, background: `${themeColors.accent}12`, borderRadius: 4, padding: "0 3px" }}>
-            {mp}
-          </span>
-        );
-      }
-      return mp;
-    });
+    last = m.index + tok.length;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
+}
+
+function renderMessageText(text: string, themeColors: any, searchQuery?: string) {
+  // Split fenced code blocks ```...``` so their contents stay literal
+  const blocks = text.split(/```/);
+  return blocks.map((block, bi) => {
+    if (bi % 2 === 1) {
+      return (
+        <pre
+          key={`cb-${bi}`}
+          className="my-1 px-3 py-2 rounded-lg overflow-x-auto text-[11px] font-mono"
+          style={{ background: `${themeColors.bg_card2 || "#000"}cc`, border: `1px solid ${themeColors.border}`, color: themeColors.text_main }}
+        >
+          <code>{block.replace(/^\n/, "").replace(/\n$/, "")}</code>
+        </pre>
+      );
+    }
+    if (!searchQuery) return <span key={`t-${bi}`}>{renderInlineText(block, themeColors, `b${bi}`)}</span>;
+    const q = searchQuery.toLowerCase();
+    const esc = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const parts = block.split(new RegExp(`(${esc})`, "gi"));
+    return (
+      <span key={`t-${bi}`}>
+        {parts.map((part, i) => {
+          if (part.toLowerCase() === q && part !== "") {
+            return (
+              <mark key={`s-${bi}-${i}`} style={{ background: `${themeColors.accent}30`, borderRadius: 2, padding: "0 2px", color: "inherit" }}>
+                {part}
+              </mark>
+            );
+          }
+          return <span key={`s-${bi}-${i}`}>{renderInlineText(part, themeColors, `b${bi}-p${i}`)}</span>;
+        })}
+      </span>
+    );
   });
 }
 
@@ -1741,7 +2126,7 @@ function MessageBubble({
           : "transparent";
       }}
     >
-      <img
+      <CachedImage
         src={msg.photoURL || STEVE_HEAD}
         alt=""
         className="w-7 h-7 rounded-lg object-cover shrink-0 mt-0.5"
@@ -1762,6 +2147,7 @@ function MessageBubble({
           >
             {msg.username}
           </span>
+          <RoleBadge role={roleForUser(msg.username)} />
           {msg.type === "dm" && (
             <span className="text-[8px] px-1 py-0.5 rounded" style={{ background: `${themeColors.blue}20`, color: themeColors.blue }}>
               DM

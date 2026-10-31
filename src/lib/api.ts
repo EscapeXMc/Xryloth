@@ -32,6 +32,12 @@ export const api = {
     launch: (instance_name: string) =>
       invoke("launch_game", { instanceName: instance_name }),
     openFolder: (name: string) => invoke("open_instance_folder", { instanceName: name }),
+    // Opens a sub-folder of an instance (mods / screenshots / config) in the OS file explorer
+    openPath: (name: string, subFolder: string) =>
+      invoke<{ success?: boolean; path?: string; error?: string }>("open_instance_path", { instanceName: name, subFolder }),
+    // Clears logs / crash-reports / caches for a single profile (never touches mods or worlds)
+    clearCache: (name: string) =>
+      invoke<{ success?: boolean; removed?: string[]; freed_bytes?: number; error?: string }>("clear_instance_cache", { instanceName: name }),
     getMods: (name: string) => invoke<any[]>("get_instance_mods", { instanceName: name }),
     toggleMod: (instanceName: string, filename: string) =>
       invoke<{success:boolean;enabled:boolean;filename:string}>("toggle_mod", { instanceName, filename }),
@@ -39,6 +45,11 @@ export const api = {
       invoke("delete_mod", { instanceName, filename }),
     rename: (oldName: string, newName: string) =>
       invoke("rename_instance", { oldName, newName }),
+    // Rename a profile and/or change its Minecraft version + loader in one call
+    edit: (instanceName: string, newName: string, mcVersion: string, loader: string, loaderVersion: string) =>
+      invoke<{ success?: boolean; name?: string; renamed?: boolean; error?: string }>("edit_instance", {
+        instanceName, newName, mcVersion, loader, loaderVersion,
+      }),
     setIcon: (instanceName: string, iconData: string) =>
       invoke("set_instance_icon", { instanceName, iconData }),
     getIcon: (instanceName: string) =>
@@ -345,6 +356,15 @@ export const api = {
   },
   screenshots: {
     get: (instanceName: string) => invoke<{screenshots: {name: string; path: string; modified: string}[]}>("get_screenshots", { instanceName }),
+  },
+  // Per-profile JVM & RAM overrides (fall back to global settings when unset)
+  instanceSettings: {
+    get: (instanceName: string) =>
+      invoke<{ success?: boolean; ram_mb: number; jvm_args: string; java_path: string }>("get_instance_settings", { instanceName }),
+    save: (instanceName: string, ramMb: number, jvmArgs: string, javaPath: string) =>
+      invoke<{ success?: boolean; error?: string }>("save_instance_settings", {
+        instanceName, ramMb, jvmArgs, javaPath,
+      }),
   },
   exportConfig: {
     instance: (instanceName: string, outputPath: string) =>

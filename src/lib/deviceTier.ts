@@ -54,8 +54,27 @@ export function usePotatoMode(): boolean {
     if (ramTotal <= 0) return;
     const next = ramTotal < LOW_RAM_GATE_BYTES;
     writeCache(next);
+    applyLowEndClass(next);
     setLowEnd(next);
   }, [ramTotal]);
 
   return lowEnd;
 }
+
+/**
+ * Mirror the tier onto `<html class="lowend">` so index.css can drop the
+ * expensive backdrop-blur layer on weak machines (CSS keys off this class —
+ * the store hook above only runs inside React components, while the class
+ * must exist before the first painted frame).
+ */
+function applyLowEndClass(v: boolean) {
+  try {
+    document.documentElement.classList.toggle("lowend", v);
+  } catch {
+    /* noop */
+  }
+}
+
+// Earliest possible application: cached answer from last launch, else the
+// synchronous deviceMemory hint — both available before React mounts.
+applyLowEndClass(readCache() ?? deviceMemoryHint() ?? false);

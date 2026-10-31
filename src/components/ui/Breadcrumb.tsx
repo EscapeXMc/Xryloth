@@ -31,7 +31,7 @@ export function Breadcrumb() {
   }
 
   if (selectedInstance && (currentPage === "instances" || currentPage === "configeditor")) {
-    items.push({ label: selectedInstance });
+    items.push({ label: selectedInstance.name });
   }
 
   if (items.length < 2) return null;

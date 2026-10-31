@@ -1,37 +1,27 @@
-import { useEffect, useRef, useMemo, useState, useCallback, ErrorInfo, Component, ReactNode } from "react";
+"use client";
+
+import React, { useEffect, useRef, useMemo, useState, useCallback, ErrorInfo, Component, ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLauncherStore } from "./stores";
-import { TopBar } from "./components/ui/TopBar";
-import { TitleBar } from "./components/ui/TitleBar";
-import { LoadingOverlay } from "./components/ui/LoadingOverlay";
+import { MainLayoutShell } from "./components/layout/MainLayoutShell";
 import { SplashScreen } from "./components/ui/SplashScreen";
+import { GameBoostOverlay } from "./components/ui/GameBoostOverlay";
+import { LaunchAnimation } from "./components/ui/LaunchAnimation";
+import { LoadingOverlay } from "./components/ui/LoadingOverlay";
 import { LaunchOverlay } from "./components/ui/LaunchOverlay";
 import { WizardOverlay } from "./components/ui/WizardOverlay";
-import { AnimatedBackground, useAnimatedBg } from "./components/ui/AnimatedBackgrounds";
-import { LaunchAnimation } from "./components/ui/LaunchAnimation";
 import { MusicPlayer } from "./components/ui/MusicPlayer";
-import { renderPage } from "./components/LazyPages";
-import { PacksPage } from "./components/pages/PacksPage";
-import { ModpacksPage } from "./components/pages/ModpacksPage";
-import { LogsPage } from "./components/pages/LogsPage";
-import { ServersPage } from "./components/pages/ServersPage";
-import { PartnersPage } from "./components/pages/PartnersPage";
-import { TemplatesPage } from "./components/pages/TemplateBrowser";
-import { ConfigEditorPage } from "./components/pages/ConfigEditorPage";
-import { ChatPage } from "./components/pages/ChatPage";
-import { ThemesPage } from "./components/pages/ThemesPage";
-import { AnnouncementsPage } from "./components/pages/AnnouncementsPage";
-import { AnnouncementTicker } from "./components/ui/AnnouncementTicker";
-import { AnnouncementHost } from "./components/ui/AnnouncementPopup";
+import { AnnouncementHost } from "./components/ui/AnnouncementHost";
 import { ToastProvider } from "./components/ui/Toast";
-import { Breadcrumb } from "./components/ui/Breadcrumb";
-import { GameBoostOverlay } from "./components/ui/GameBoostOverlay";
-import { UpdateOverlay } from "./components/ui/UpdateOverlay";
+import { DialogHost } from "./components/ui/Dialog";
+import { PartnerNotificationListener } from "./components/ui/PartnerNotificationListener";
 import { api } from "./lib/api";
-import { convertFileSrc } from "@tauri-apps/api/tauri";
+import { listen } from "@tauri-apps/api/event";
+import { isTauri } from "./lib/tauri";
+import { warmImageCache } from "./lib/imageCache";
+import { fetchPartners } from "./lib/partners";
 import { checkNavGuard } from "./lib/navGuard";
 import { attachUpdateListeners, checkForUpdates, startUpdate } from "./lib/updater";
-import { usePotatoMode } from "./lib/deviceTier";
 import { watchAuthState } from "./lib/auth";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string }> {
@@ -68,182 +58,6 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   }
 }
 
-/** The cheapest backdrop: two static radial gradients. No animation, no network. */
-function StaticBackdrop({ themeColors }: { themeColors: any }) {
-  return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-      <div className="absolute inset-0" style={{
-        background: `radial-gradient(circle at 20% 20%, ${themeColors.accent}08 0%, transparent 50%), radial-gradient(circle at 80% 80%, ${themeColors.purple || themeColors.blue}06 0%, transparent 50%)`,
-      }} />
-    </div>
-  );
-}
-
-function AnimatedOrbs({ themeColors }: { themeColors: any }) {
-  return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-      <div className="absolute" style={{
-        top: "10%", left: "15%", width: "400px", height: "400px",
-        background: `radial-gradient(circle, ${themeColors.accent}12 0%, transparent 70%)`,
-        borderRadius: "50%", filter: "blur(80px)",
-        animation: "orbFloat1 20s ease-in-out infinite",
-      }} />
-      <div className="absolute" style={{
-        bottom: "15%", right: "10%", width: "350px", height: "350px",
-        background: `radial-gradient(circle, ${themeColors.purple || themeColors.blue}10 0%, transparent 70%)`,
-        borderRadius: "50%", filter: "blur(80px)",
-        animation: "orbFloat2 25s ease-in-out infinite",
-      }} />
-      <div className="absolute" style={{
-        top: "50%", left: "50%", width: "300px", height: "300px",
-        background: `radial-gradient(circle, ${themeColors.accent}08 0%, transparent 70%)`,
-        borderRadius: "50%", filter: "blur(60px)",
-        animation: "orbFloat3 18s ease-in-out infinite",
-      }} />
-    </div>
-  );
-}
-
-function FloatingParticles({ themeColors }: { themeColors: any }) {
-  const particles = useMemo(() =>
-    Array.from({ length: 30 }, (_, i) => ({
-      id: i,
-      left: Math.random() * 100,
-      size: Math.random() * 3 + 1,
-      duration: Math.random() * 20 + 15,
-      delay: Math.random() * 15,
-      opacity: Math.random() * 0.4 + 0.1,
-    })), []);
-
-  return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-      {particles.map((p) => (
-        <div key={p.id} className="absolute rounded-full" style={{
-          left: `${p.left}%`,
-          bottom: "-10px",
-          width: `${p.size}px`,
-          height: `${p.size}px`,
-          background: themeColors.accent,
-          opacity: p.opacity,
-          animation: `particleDrift ${p.duration}s linear ${p.delay}s infinite`,
-        }} />
-      ))}
-    </div>
-  );
-}
-
-function BackgroundLayer() {
-  const { settings, themeColors } = useLauncherStore();
-  const potato = usePotatoMode();
-  const isLinux = typeof navigator !== "undefined" && /linux/i.test(navigator.userAgent || (navigator as any).platform || "");
-  const bgType = settings.launcher_bg_type || (isLinux ? "none" : "video");
-  const bgImage = settings.launcher_bg_image || "";
-  const bgVideo = settings.launcher_bg_video || "https://cdn.pixabay.com/video/2023/06/24/168653-839542456_large.mp4";
-  const bgOpacity = settings.launcher_bg_opacity ?? 65;
-  const bgBlur = settings.launcher_bg_blur ?? 4;
-  const bgFit = settings.launcher_bg_fit || "cover";
-  const bgBrightness = settings.launcher_bg_brightness ?? 36;
-  const bgDimming = settings.launcher_bg_dimming ?? 3;
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const fitVal = bgFit === "stretch" ? "fill" : bgFit;
-  const [resolvedBgImage, setResolvedBgImage] = useState("");
-  const [resolvedBgVideo, setResolvedBgVideo] = useState("");
-
-  useEffect(() => {
-    // Low-end tier never paints a custom image, so skip the lookup as well.
-    if (potato) { setResolvedBgImage(""); return; }
-    if (bgType === "image" && bgImage) {
-      if (bgImage === "file") {
-        api.background.getFilePath().then((path) => {
-          if (path) setResolvedBgImage(convertFileSrc(path));
-        }).catch(() => {});
-      } else if (bgImage.startsWith("http")) {
-        setResolvedBgImage(bgImage);
-      } else if (bgImage.startsWith("data:")) {
-        setResolvedBgImage(bgImage);
-      } else {
-        setResolvedBgImage(convertFileSrc(bgImage));
-      }
-    } else {
-      setResolvedBgImage("");
-    }
-  }, [bgType, bgImage, potato]);
-
-  useEffect(() => {
-    // Low-end tier never paints the background video, so never fetch its source.
-    if (potato) { setResolvedBgVideo(""); return; }
-    if (bgType === "video" && bgVideo) {
-      if (bgVideo === "file") {
-        api.background.getVideoPath().then((path) => {
-          if (path) setResolvedBgVideo(convertFileSrc(path));
-        }).catch(() => {});
-      } else if (bgVideo.startsWith("http")) {
-        setResolvedBgVideo(bgVideo);
-      } else {
-        setResolvedBgVideo(convertFileSrc(bgVideo));
-      }
-    } else {
-      setResolvedBgVideo("");
-    }
-  }, [bgType, bgVideo, potato]);
-
-  const showCustom = (bgType === "image" && resolvedBgImage) || (bgType === "video" && resolvedBgVideo);
-
-  // Low-end tier: no video, no custom image, no animated layers -- a single
-  // static gradient, with nothing that repaints per frame.
-  if (potato) return <StaticBackdrop themeColors={themeColors} />;
-
-  if (!showCustom) {
-    if (settings.enable_particles === false) return <StaticBackdrop themeColors={themeColors} />;
-    return (
-      <>
-        <AnimatedOrbs themeColors={themeColors} />
-        <FloatingParticles themeColors={themeColors} />
-      </>
-    );
-  }
-
-  return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-      {bgType === "image" && resolvedBgImage && (
-        <img src={resolvedBgImage} alt="" className="absolute inset-0 w-full h-full"
-          style={{
-            objectFit: fitVal,
-            opacity: bgOpacity / 100,
-            filter: [
-              bgBlur > 0 ? `blur(${bgBlur}px)` : "",
-              bgBrightness !== 100 ? `brightness(${bgBrightness}%)` : "",
-            ].filter(Boolean).join(" ") || undefined,
-          }}
-          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-      )}
-      {bgType === "video" && resolvedBgVideo && (
-        <video ref={videoRef} src={resolvedBgVideo} autoPlay loop muted playsInline
-          className="absolute inset-0 w-full h-full"
-          style={{
-            objectFit: fitVal,
-            opacity: bgOpacity / 100,
-            filter: [
-              bgBlur > 0 ? `blur(${bgBlur}px)` : "",
-              bgBrightness !== 100 ? `brightness(${bgBrightness}%)` : "",
-            ].filter(Boolean).join(" ") || undefined,
-          }}
-          onError={(e) => { (e.target as HTMLVideoElement).style.display = "none"; }} />
-      )}
-      {/* Dark dimming overlay */}
-      {bgDimming > 0 && (
-        <div className="absolute inset-0" style={{
-          background: `rgba(0,0,0,${bgDimming / 100})`,
-        }} />
-      )}
-      <div className="absolute inset-0" style={{
-        background: `linear-gradient(180deg, ${themeColors.bg_main}44 0%, ${themeColors.bg_main}18 40%, ${themeColors.bg_main}18 60%, ${themeColors.bg_main}44 100%)`,
-      }} />
-      <FloatingParticles themeColors={themeColors} />
-    </div>
-  );
-}
-
 const pageVariants = {
   initial: { opacity: 0, y: 12, scale: 0.99 },
   animate: { opacity: 1, y: 0, scale: 1 },
@@ -256,8 +70,6 @@ const pageTransition = {
   duration: 0.25,
 };
 
-// Low-end tier: a short opacity fade instead of move + scale. The transform is
-// what makes the compositor re-render the whole page on every navigation.
 const potatoPageVariants = {
   initial: { opacity: 0 },
   animate: { opacity: 1 },
@@ -270,29 +82,73 @@ const potatoPageTransition = {
   duration: 0.08,
 };
 
+/**
+ * Reactive loading overlay. Lives in its own component so App itself never
+ * has to subscribe to `isLoading` — previously App destructured the WHOLE
+ * store, meaning every single store write (logs, settings, playTimes,
+ * install progress, server polls…) re-rendered the entire component tree.
+ */
+function LoadingGate() {
+  const isLoading = useLauncherStore((s) => s.isLoading);
+  return isLoading ? <LoadingOverlay /> : null;
+}
+
+/**
+ * Pre-download the art the first screens show (client startup warm-up):
+ * the mc-heads avatar used by the hero pill/profile cards plus every partner
+ * logo, banner and server icon. Runs in the background once — first paint
+ * then hits ~/.xryloth/image_cache on disk instead of the network, and the
+ * backend keeps those copies revalidated (If-None-Match) automatically.
+ */
+function warmStartupImages() {
+  const urls: string[] = [];
+  // Exactly the URL shape HeroStage/avatarUrl requests (mcId() normalizes
+  // every name to this same default hash), so the warm hit is a cache hit.
+  urls.push("https://mc-heads.net/avatar/8660ba3e76424a96b46f0b738fcc8806?size=64");
+  fetchPartners()
+    .then((list) => {
+      for (const p of list) {
+        if (p.logo && /^https?:/i.test(p.logo)) urls.push(p.logo);
+        if (p.banner && /^https?:/i.test(p.banner)) urls.push(p.banner);
+        if (p.ip) urls.push(`https://api.mcsrvstat.us/icon/${p.ip}`);
+      }
+      warmImageCache(urls);
+    })
+    .catch(() => warmImageCache(urls));
+}
+
 function App() {
-  const { currentPage, setPage, themeColors, themeName, loadSettings, loadInstances, fetchLiveVersion, loadSystemInfo } = useLauncherStore();
+  // Narrow selectors only: these re-render App only when the selected slice
+  // actually changes (theme name / stable action refs — i.e. almost never).
+  const themeName = useLauncherStore((s) => s.themeName);
+  const setPage = useLauncherStore((s) => s.setPage);
   const [splashDone, setSplashDone] = useState(false);
   const [launchInstance, setLaunchInstance] = useState<string | null>(null);
   const [boostInstance, setBoostInstance] = useState<string | null>(null);
   const [launchAnimInstance, setLaunchAnimInstance] = useState<string | null>(null);
   const [showWizard, setShowWizard] = useState(false);
-  const { bgType } = useAnimatedBg();
-  const potato = usePotatoMode();
 
   useEffect(() => {
+    // Actions are stable store references — read once, no subscription needed.
+    const { loadSettings, loadInstances, fetchLiveVersion, loadSystemInfo } =
+      useLauncherStore.getState();
     loadSettings().then(() => {
-      loadInstances();
+      loadInstances()
+        .then(() => {
+          try {
+            warmStartupImages();
+          } catch {
+            /* warm-up is best-effort */
+          }
+        })
+        .catch(() => {});
       api.wizard.checkFirstLaunch().then((result) => {
         if (result.first_launch) setShowWizard(true);
       }).catch(() => {});
     });
     fetchLiveVersion();
-    // Fetched here (not just from HomePage) so the low-end tier is known while
-    // the splash screen is still up, i.e. before the first heavy frame paints.
     loadSystemInfo();
 
-    // Listen for launch events from InstancesPage
     const handleLaunchEvent = (e: CustomEvent) => {
       const name = e.detail?.instanceName;
       if (name) setBoostInstance(name);
@@ -301,12 +157,28 @@ function App() {
     return () => window.removeEventListener("ec-launch-game", handleLaunchEvent as EventListener);
   }, []);
 
-  // Keep the local account session in step with Firebase. The session is only
-  // a mirror for the UI — the database rules check the Firebase token — so it
-  // has to follow the real auth state rather than trust what was stored.
+  // Global handler for Xryloth AI UI actions that must survive page changes.
+  // "open-create-instance" fires right after the AI navigates to the Profiles
+  // page; we wait a beat for that page to mount, then open its Create wizard.
+  useEffect(() => {
+    if (!isTauri()) return;
+    let un: (() => void) | undefined;
+    let cancelled = false;
+    (async () => {
+      const u = await listen<{ type: string }>("ai-action", (e) => {
+        if (e.payload?.type === "open-create-instance") {
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent("ec-open-create-instance"));
+          }, 450);
+        }
+      });
+      if (cancelled) u(); else un = u;
+    })();
+    return () => { cancelled = true; if (un) un(); };
+  }, []);
+
   useEffect(() => watchAuthState(), []);
 
-  // Auto-updater: attach realtime listeners, then check GitHub on startup.
   useEffect(() => {
     attachUpdateListeners();
     const timer = setTimeout(async () => {
@@ -314,7 +186,6 @@ function App() {
       if (settings.auto_check_updates === false) return;
       const info = await checkForUpdates();
       if (info?.update_available && settings.auto_update !== false) {
-        // Automatic mode: show the overlay, then install without a prompt.
         setTimeout(() => { startUpdate(); }, 1800);
       }
     }, 5000);
@@ -358,9 +229,6 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [setPage]);
 
-  // Keep the window title in sync with the active theme. The icon is left
-  // alone on purpose: the shipped /favicon.svg is the real white brand mark,
-  // and generating a coloured tile here used to replace it with a letter.
   useEffect(() => {
     document.title = `Xryloth — ${themeName.charAt(0).toUpperCase() + themeName.slice(1)}`;
   }, [themeName]);
@@ -380,72 +248,30 @@ function App() {
 
   const handleLaunchAnimComplete = useCallback(() => setLaunchAnimInstance(null), []);
 
-  const renderPage = () => {
-    switch (currentPage) {
-      case "home": return <HomePage />;
-      case "instances": return <InstancesPage />;
-      case "mods": return <ModsPage />;
-      case "packs": return <PacksPage />;
-      case "modpacks": return <ModpacksPage />;
-      case "accounts": return <AccountsPage />;
-      case "xai": return <XrylothAIPage />;
-      case "servers": return <ServersPage />;
-      case "partners": return <PartnersPage />;
-      case "templates": return <TemplatesPage />;
-      case "configeditor": return <ConfigEditorPage />;
-      case "chat": return <ChatPage />;
-      case "themes": return <ThemesPage />;
-      case "announcements": return <AnnouncementsPage />;
-      case "settings": return <SettingsPage />;
-      case "logs": return <LogsPage />;
-      default: return <HomePage />;
-    }
-  };
-
   if (!splashDone) {
     return <SplashScreen onComplete={handleSplashComplete} />;
   }
 
   return (
     <ToastProvider>
-      <ThemeSync />
-      <div className="h-screen w-screen flex flex-col overflow-hidden" style={{ background: themeColors.bg_main, color: themeColors.text_main }}>
-        <TitleBar />
-        <AnnouncementTicker />
-        <div className="flex flex-1 overflow-hidden relative">
-          <BackgroundLayer />
-          {!potato && <AnimatedBackground type={bgType} />}
-          {!potato && <MinecraftParticles />}
-          <Sidebar />
-          <div className="flex-1 flex flex-col overflow-hidden relative" style={{ zIndex: 1 }}>
-            <Breadcrumb />
-            <main className="flex-1 overflow-hidden relative">
-              <ErrorBoundary>
-                <AnimatePresence mode="wait">
-                  <motion.div key={currentPage} variants={potato ? potatoPageVariants : pageVariants} initial="initial" animate="animate" exit="exit" transition={potato ? potatoPageTransition : pageTransition}
-                    className="absolute inset-0 overflow-y-auto overflow-x-hidden p-5" style={{ scrollbarWidth: "thin", scrollBehavior: "smooth" }}>
-                    {renderPage()}
-                  </motion.div>
-                </AnimatePresence>
-              </ErrorBoundary>
-            </main>
-          </div>
-        </div>
-        {useLauncherStore.getState().isLoading && <LoadingOverlay />}
-        {launchInstance && <LaunchOverlay instanceName={launchInstance} onComplete={handleLaunchComplete} />}
-        <MusicPlayer />
-        <AnimatePresence>
-          {boostInstance && <GameBoostOverlay instanceName={boostInstance} onComplete={handleBoostComplete} />}
-        </AnimatePresence>
-        <AnimatePresence>
-          {launchAnimInstance && <LaunchAnimation instanceName={launchAnimInstance} onComplete={handleLaunchAnimComplete} />}
-        </AnimatePresence>
-        <AnimatePresence>
-          {showWizard && <WizardOverlay onComplete={() => setShowWizard(false)} />}
-        </AnimatePresence>
-        <UpdateOverlay />
-        <AnnouncementHost />
-      </div>
+      <ErrorBoundary>
+        <MainLayoutShell />
+      </ErrorBoundary>
+      <LoadingGate />
+      {launchInstance && <LaunchOverlay instanceName={launchInstance} onComplete={handleLaunchComplete} />}
+      <MusicPlayer />
+      <AnimatePresence>
+        {boostInstance && <GameBoostOverlay instanceName={boostInstance} onComplete={handleBoostComplete} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {launchAnimInstance && <LaunchAnimation instanceName={launchAnimInstance} onComplete={handleLaunchAnimComplete} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showWizard && <WizardOverlay onComplete={() => setShowWizard(false)} />}
+      </AnimatePresence>
+      <AnnouncementHost />
+      <PartnerNotificationListener />
+      <DialogHost />
     </ToastProvider>
   );
 }

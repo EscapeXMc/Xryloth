@@ -1,4 +1,5 @@
 /* Based on original types.ts - cleaned up to fix compile errors */
+/* Extended for v7.0 - FastClient-beating architecture */
 
 export interface Settings {
   mc_token?: string;
@@ -75,7 +76,9 @@ export interface Settings {
   [key: string]: any;
 }
 
+/* ------------------------------------------------------------------ Instance */
 export interface Instance {
+  id: string;
   name: string;
   version: string;
   loader: string;
@@ -85,10 +88,64 @@ export interface Instance {
   icon: string;
   installed?: boolean;
   version_json_exists?: boolean;
-  mods?: Array<{ name: string; slug?: string; version?: string; enabled?: boolean }>;
+  mods?: Array<{
+    name: string;
+    slug?: string;
+    version?: string;
+    enabled?: boolean;
+    source?: "modrinth" | "curseforge" | "local";
+    filename?: string;
+  }>;
+  ram_mb?: number;
+  jvm_args?: string;
+  is_favorite?: boolean;
 }
 
-export interface ModrinthHit {
+/* ------------------------------------------------------------------ Mods */
+export interface ModInfo {
+  slug: string;
+  name: string;
+  version: string;
+  filename: string;
+  enabled: boolean;
+  source: "modrinth" | "curseforge" | "local" | "resourcepack";
+  download_url?: string;
+  icon_url?: string;
+  banner_url?: string;
+  summary?: string;
+  author?: string;
+  loaders?: string[];
+  game_versions?: string[];
+  dependencies?: ModDependency[];
+  downloads?: number;
+  category?: "mod" | "modpack" | "resourcepack";
+}
+
+export interface ModDependency {
+  slug: string;
+  name: string;
+  installed: boolean;
+  filename?: string;
+  required: boolean;
+}
+
+export interface ModConflict {
+  mod1: string;
+  mod2: string;
+  reason: string;
+  severity: "low" | "medium" | "high" | "critical";
+}
+
+export interface ModUpdate {
+  slug: string;
+  filename: string;
+  current_version: string;
+  latest_version: string;
+  download_url: string;
+  mod_name: string;
+}
+
+export interface ModSearchResult {
   slug: string;
   title: string;
   description: string;
@@ -98,25 +155,41 @@ export interface ModrinthHit {
   versions?: string[];
   project_type?: string;
   author?: string;
-  date_created?: string;
-  date_modified?: string;
-  source_url?: string;
-  wiki_url?: string;
+  latest_version?: string;
+  loaders?: string[];
+  game_versions?: string[];
+}
+
+export interface ModrinthHit {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  downloads: number;
+  downloads_url?: string;
+  icon_url?: string;
+  banner_url?: string;
+  gallery?: Array<{ url: string; title?: string }>;
+  featured_gallery?: string;
+  categories?: string[];
+  versions?: string[];
+  project_type?: string;
+  author?: string;
+  latest_version?: string;
+  loaders?: string[];
+  game_versions?: string[];
+  dependencies?: ModDependency[];
 }
 
 export interface LoaderVersion {
   version: string;
-  stable?: boolean;
+  build: number;
+  loader: string;
+  game_version: string;
+  direct_download_url?: string;
 }
 
-export interface NewsItem {
-  title: string;
-  url: string;
-  date: string;
-  type: string;
-  image?: string;
-}
-
+/* ------------------------------------------------------------------ Server */
 export interface ServerStatus {
   online: boolean;
   host: string;
@@ -127,9 +200,17 @@ export interface ServerStatus {
   motd: string;
   icon: string;
   latency: number;
+  tps?: number;
   error?: string;
 }
 
+export interface ServerEntry {
+  name: string;
+  address: string;
+  port: number;
+}
+
+/* ------------------------------------------------------------------ System */
 export interface SystemInfo {
   cpu: number;
   ram_used: number;
@@ -140,6 +221,7 @@ export interface SystemInfo {
   disk_pct: number;
 }
 
+/* ------------------------------------------------------------------ Theme */
 export interface ThemeColors {
   bg_main: string;
   bg_nav: string;
@@ -185,19 +267,38 @@ export const THEMES: Record<string, { name: string; display_name: string; accent
   orange: {
     name: "orange",
     display_name: "Xryloth",
-    accent: "#ffba08",
+    accent: "#e06b22",
     colors: {
-      bg_main: "#0a0503", bg_nav: "#100806", bg_card: "#180c06", bg_card2: "#20100a",
-      bg_glass: "#2a150c", bg_hover: "#3a1d10", accent: "#ffba08", accent2: "#f48c06",
-      accent_hover: "#ffc94a", accent_dim: "#3d1c06", accent_glow: "#f48c06",
-      accent_text: "#1a0a00",
-      text_main: "#fff4e8", text_sub: "#ffcda8", text_muted: "#cf9370",
-      border: "#3d2113", border_bright: "#5c341c", border_accent: "#ffba08",
+      // FastClient pure dark palette
+      bg_main: "#090B0E", bg_nav: "#0A0C0E", bg_card: "#13161C", bg_card2: "#161922",
+      bg_glass: "#161922", bg_hover: "#1C2029", accent: "#e06b22", accent2: "#c85108",
+      accent_hover: "#f07c32", accent_dim: "#2a1a10", accent_glow: "#e06b22",
+      accent_text: "#ffffff",
+      text_main: "#ffffff", text_sub: "#a1a1aa", text_muted: "#71717a",
+      border: "#1f2430", border_bright: "#2a303c", border_accent: "#e06b22",
+      danger: "#ef4444", warn: "#f59e0b", success: "#22c55e", blue: "#37c9ff", purple: "#bd5cff", green: "#22c55e",
+      tag_fabric: "#37c9ff", tag_forge: "#f59e0b", tag_vanilla: "#e06b22",
+      tag_quilt: "#bd5cff", tag_neo: "#f48c06", nav_active: "#e06b22", nav_inactive: "#71717a",
+      server1: "#13161C", server2: "#161922", server3: "#063326", server4: "#2b103f", server5: "#350824",
+      glass_reflect: "#2a303c", particle_color: "#e06b22",
+    },
+  },
+  ember: {
+    name: "ember",
+    display_name: "Ember Mark",
+    accent: "#ff5500",
+    colors: {
+      bg_main: "#0a0200", bg_nav: "#140802", bg_card: "#1e0f06", bg_card2: "#28170a",
+      bg_glass: "#331d0e", bg_hover: "#462412", accent: "#ff5500", accent2: "#ff6600",
+      accent_hover: "#ff7a33", accent_dim: "#4d1a00", accent_glow: "#ff6600",
+      accent_text: "#1a0500",
+      text_main: "#fff3e0", text_sub: "#ffcda8", text_muted: "#cf9370",
+      border: "#4d2610", border_bright: "#7c3f1c", border_accent: "#ff5500",
       danger: "#ff4466", warn: "#ffb020", success: "#29f59a", blue: "#37c9ff", purple: "#bd5cff", green: "#29f59a",
-      tag_fabric: "#37c9ff", tag_forge: "#ffb020", tag_vanilla: "#ffba08",
-      tag_quilt: "#bd5cff", tag_neo: "#f48c06", nav_active: "#ffba08", nav_inactive: "#cf9370",
-      server1: "#3d1c06", server2: "#3a2605", server3: "#063326", server4: "#2b103f", server5: "#350824",
-      glass_reflect: "#ffb257", particle_color: "#ffba08",
+      tag_fabric: "#37c9ff", tag_forge: "#ffb020", tag_vanilla: "#ff5500",
+      tag_quilt: "#bd5cff", tag_neo: "#ff8c06", nav_active: "#ff5500", nav_inactive: "#cf9370",
+      server1: "#4d1c06", server2: "#4a2605", server3: "#063326", server4: "#2b103f", server5: "#350824",
+      glass_reflect: "#ff8a4d", particle_color: "#ff5500",
     },
   },
   black: {
@@ -218,42 +319,6 @@ export const THEMES: Record<string, { name: string; display_name: string; accent
       glass_reflect: "#ffffff", particle_color: "#ffffff",
     },
   },
-  cartoon: {
-    name: "cartoon",
-    display_name: "Blue Cartoon",
-    accent: "#1e88e5",
-    colors: {
-      bg_main: "#010408", bg_nav: "#030a14", bg_card: "#060e1e", bg_card2: "#08152e",
-      bg_glass: "#0a1a36", bg_hover: "#0e2345", accent: "#1e88e5", accent2: "#00d4ff",
-      accent_hover: "#42a5f5", accent_dim: "#041128", accent_glow: "#1e88e5",
-      accent_text: "#ffffff",
-      text_main: "#e0ecff", text_sub: "#5a9ad0", text_muted: "#2a5580",
-      border: "#1e88e5", border_bright: "#2979cc", border_accent: "#00d4ff",
-      danger: "#ff4466", warn: "#ffb300", success: "#00e676", blue: "#1e88e5", purple: "#9c7cff", green: "#4ade80",
-      tag_fabric: "#1e88e5", tag_forge: "#ffb300", tag_vanilla: "#42a5f5",
-      tag_quilt: "#9c7cff", tag_neo: "#ffb300", nav_active: "#1e88e5", nav_inactive: "#2a5580",
-      server1: "#041128", server2: "#041828", server3: "#042a10", server4: "#100528", server5: "#1a0410",
-      glass_reflect: "#42a5f5", particle_color: "#2196f3",
-    },
-  },
-  godred: {
-    name: "godred",
-    display_name: "God Red",
-    accent: "#ff3366",
-    colors: {
-      bg_main: "#080105", bg_nav: "#10060a", bg_card: "#1d0a12", bg_card2: "#280e18",
-      bg_glass: "#331220", bg_hover: "#401a28", accent: "#ff3366", accent2: "#ff7733",
-      accent_hover: "#ff6688", accent_dim: "#3a0712", accent_glow: "#ff3366",
-      accent_text: "#fff5f7",
-      text_main: "#fff5f7", text_sub: "#ff9dad", text_muted: "#9d5361",
-      border: "#3b101a", border_bright: "#6d1a2e", border_accent: "#ff3366",
-      danger: "#ff4466", warn: "#ffbb33", success: "#33ff99", blue: "#44ccff", purple: "#cc77ff", green: "#33ff99",
-      tag_fabric: "#44ccff", tag_forge: "#ffbb33", tag_vanilla: "#ff3366",
-      tag_quilt: "#cc77ff", tag_neo: "#ff7733", nav_active: "#ff3366", nav_inactive: "#9d5361",
-      server1: "#3a0712", server2: "#3b1b05", server3: "#063326", server4: "#2b123f", server5: "#351124",
-      glass_reflect: "#ff6b8a", particle_color: "#ff5a76",
-    },
-  },
   fastclient: {
     name: "fastclient",
     display_name: "Fast Client",
@@ -270,60 +335,6 @@ export const THEMES: Record<string, { name: string; display_name: string; accent
       tag_quilt: "#a855f7", tag_neo: "#f97316", nav_active: "#ff0022", nav_inactive: "#475569",
       server1: "#3a0a12", server2: "#1e3a5f", server3: "#14532d", server4: "#3b0764", server5: "#4a1942",
       glass_reflect: "#ff5577", particle_color: "#ff5566",
-    },
-  },
-  purple: {
-    name: "purple",
-    display_name: "Purple",
-    accent: "#b847ff",
-    colors: {
-      bg_main: "#08040e", bg_nav: "#0c0616", bg_card: "#160e28", bg_card2: "#1d1535",
-      bg_glass: "#261d42", bg_hover: "#322652", accent: "#b847ff", accent2: "#7c3aed",
-      accent_hover: "#cc66ff", accent_dim: "#2d1a4a", accent_glow: "#b847ff",
-      accent_text: "#e9d5ff",
-      text_main: "#f0e8ff", text_sub: "#a78bca", text_muted: "#7a6a9a",
-      border: "#2d1f4a", border_bright: "#5a3a8a", border_accent: "#b847ff",
-      danger: "#ff4466", warn: "#ffaa00", success: "#44ff88", blue: "#60a5fa", purple: "#b847ff", green: "#ffaa00",
-      tag_fabric: "#60a5fa", tag_forge: "#ffaa00", tag_vanilla: "#44ff88",
-      tag_quilt: "#b847ff", tag_neo: "#ffaa00", nav_active: "#b847ff", nav_inactive: "#7a6a9a",
-      server1: "#2d1a4a", server2: "#1a2d4a", server3: "#1a3a2d", server4: "#2d1a4a", server5: "#3a1a2d",
-      glass_reflect: "#d499ff", particle_color: "#cc66ff",
-    },
-  },
-  sapphire: {
-    name: "sapphire",
-    display_name: "Sapphire",
-    accent: "#00aaff",
-    colors: {
-      bg_main: "#030818", bg_nav: "#060d1e", bg_card: "#0c1832", bg_card2: "#0f1f42",
-      bg_glass: "#142852", bg_hover: "#1a3464", accent: "#00aaff", accent2: "#0066cc",
-      accent_hover: "#33ccff", accent_dim: "#00264d", accent_glow: "#00aaff",
-      accent_text: "#bae6fd",
-      text_main: "#e8f0ff", text_sub: "#7ba8d4", text_muted: "#4a6a8a",
-      border: "#142240", border_bright: "#1a4a8a", border_accent: "#00aaff",
-      danger: "#ff4466", warn: "#ffaa00", success: "#44ff88", blue: "#00aaff", purple: "#a855f7", green: "#ffaa00",
-      tag_fabric: "#00aaff", tag_forge: "#ffaa00", tag_vanilla: "#44ff88",
-      tag_quilt: "#a855f7", tag_neo: "#ffaa00", nav_active: "#00aaff", nav_inactive: "#4a6a8a",
-      server1: "#00264d", server2: "#1a3a5f", server3: "#1a3a2d", server4: "#2d1a4a", server5: "#3a1a2d",
-      glass_reflect: "#66ccff", particle_color: "#33ccff",
-    },
-  },
-  midnight: {
-    name: "midnight",
-    display_name: "Midnight",
-    accent: "#00c8e8",
-    colors: {
-      bg_main: "#020812", bg_nav: "#040d1a", bg_card: "#081529", bg_card2: "#0a1d35",
-      bg_glass: "#0e2544", bg_hover: "#122f54", accent: "#00c8e8", accent2: "#0077b6",
-      accent_hover: "#48d4ee", accent_dim: "#012a3a", accent_glow: "#00c8e8",
-      accent_text: "#ffffff",
-      text_main: "#e0f4ff", text_sub: "#6cb4d4", text_muted: "#2a5a7a",
-      border: "#0d2a3d", border_bright: "#1a4a6a", border_accent: "#00c8e8",
-      danger: "#ff4444", warn: "#ffaa00", success: "#00e676", blue: "#00c8e8", purple: "#aa77ff", green: "#ffaa00",
-      tag_fabric: "#00c8e8", tag_forge: "#ffaa00", tag_vanilla: "#48d4ee",
-      tag_quilt: "#aa77ff", tag_neo: "#ffaa00", nav_active: "#00c8e8", nav_inactive: "#2a5a7a",
-      server1: "#071a2e", server2: "#071e2a", server3: "#071a14", server4: "#0d1a2e", server5: "#0a1428",
-      glass_reflect: "#66ddf0", particle_color: "#48d4ee",
     },
   },
   lunar: {
@@ -344,71 +355,13 @@ export const THEMES: Record<string, { name: string; display_name: string; accent
       glass_reflect: "#66f0c4", particle_color: "#33ffb8",
     },
   },
-  feature: {
-    name: "feature",
-    display_name: "Feature",
-    accent: "#ff4030",
-    colors: {
-      bg_main: "#080205", bg_nav: "#0e040a", bg_card: "#180810", bg_card2: "#200c18",
-      bg_glass: "#2a1020", bg_hover: "#36162a", accent: "#ff4030", accent2: "#ff8a00",
-      accent_hover: "#ff7060", accent_dim: "#3a0a10", accent_glow: "#ff4030",
-      accent_text: "#ffffff",
-      text_main: "#fff5f0", text_sub: "#ffb090", text_muted: "#8a5a4a",
-      border: "#3a1818", border_bright: "#5a2828", border_accent: "#ff4030",
-      danger: "#ff4466", warn: "#ffb020", success: "#29f59a", blue: "#37c9ff", purple: "#bd5cff", green: "#29f59a",
-      tag_fabric: "#37c9ff", tag_forge: "#ffb020", tag_vanilla: "#ff4030",
-      tag_quilt: "#bd5cff", tag_neo: "#ff8a00", nav_active: "#ff4030", nav_inactive: "#8a5a4a",
-      server1: "#3a0810", server2: "#3a1a05", server3: "#063326", server4: "#2b103f", server5: "#350824",
-      glass_reflect: "#ff8878", particle_color: "#ff7060",
-    },
-  },
-  greengradient: {
-    name: "greengradient",
-    display_name: "Green Gradient",
-    accent: "#00e888",
-    colors: {
-      bg_main: "#030e08", bg_nav: "#0a1a10", bg_card: "#0f2418", bg_card2: "#142e1e",
-      bg_glass: "#1a3d2a", bg_hover: "#224d34", accent: "#00e888", accent2: "#00cc77",
-      accent_hover: "#33ffaa", accent_dim: "#003d1a", accent_glow: "#00e888",
-      accent_text: "#e8fff0",
-      text_main: "#e8fff0", text_sub: "#7ad4b0", text_muted: "#3a7a5a",
-      border: "#1a3d2a", border_bright: "#2a5a3e", border_accent: "#00e888",
-      danger: "#ff5577", warn: "#ffbb33", success: "#00e888", blue: "#44ccff", purple: "#aa66ff", green: "#00e888",
-      tag_fabric: "#44ccff", tag_forge: "#ffbb33", tag_vanilla: "#00e888",
-      tag_quilt: "#aa66ff", tag_neo: "#ffbb33", nav_active: "#00e888", nav_inactive: "#3a7a5a",
-      server1: "#003d1a", server2: "#00352a", server3: "#0a3d00", server4: "#001a3d", server5: "#2a003d",
-      glass_reflect: "#66ffb8", particle_color: "#33ffaa",
-    },
-  },
 };
+
 export interface ModProfile {
   name: string;
   created: string;
   instance_source: string;
   mods: Array<{ slug: string; version_id: string; filename: string }>;
-}
-
-export interface ModUpdate {
-  slug: string;
-  filename: string;
-  current_version: string;
-  latest_version: string;
-  download_url: string;
-  mod_name: string;
-}
-
-export interface ModDependency {
-  slug: string;
-  name: string;
-  installed: boolean;
-  filename?: string;
-}
-
-export interface ModConflict {
-  mod1: string;
-  mod2: string;
-  reason: string;
-  severity: string;
 }
 
 export interface CrashLogInfo {
@@ -421,20 +374,6 @@ export interface CrashLogInfo {
 export interface MrpackExportResult {
   success: boolean;
   path?: string;
-  error?: string;
-}
-
-export interface ServerEntry {
-  name: string;
-  address: string;
-  port: number;
-}
-
-export interface ServerPing {
-  online: boolean;
-  motd?: string;
-  players?: { online: number; max: number };
-  version?: string;
   error?: string;
 }
 
@@ -452,4 +391,15 @@ export interface UpdateInfo {
   error?: string;
 }
 
-export {}; // Added to make top-level bindings exportable"
+export interface NewsItem {
+  title: string;
+  url: string;
+  date: string;
+  type: string;
+  image?: string;
+}
+
+export {};
+
+// Make top-level bindings exportable
+export type { };

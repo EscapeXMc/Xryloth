@@ -60,7 +60,7 @@ function createAmbientOsc(ctx: AudioContext, gain: GainNode, mood: string) {
 }
 
 export function MusicPlayer() {
-  const { themeColors } = useLauncherStore();
+  const themeColors = useLauncherStore((s) => s.themeColors);
   const { play: playSound } = useSounds();
   const [expanded, setExpanded] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -176,7 +176,7 @@ export function MusicPlayer() {
             style={{
               background: `${themeColors.bg_card}ee`,
               border: `1px solid ${themeColors.border}60`,
-              backdropFilter: "blur(20px)",
+              backdropFilter: "blur(12px)",
             }}
           >
             {/* Header */}
@@ -287,7 +287,7 @@ export function MusicPlayer() {
         style={{
           background: playing ? `${themeColors.accent}25` : `${themeColors.bg_card}ee`,
           border: `1px solid ${playing ? themeColors.accent + "50" : themeColors.border + "40"}`,
-          backdropFilter: "blur(20px)",
+          backdropFilter: "blur(12px)",
           boxShadow: playing ? `0 2px 16px ${themeColors.accent}20` : "none",
         }}
         whileHover={{ scale: 1.08 }}

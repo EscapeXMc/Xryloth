@@ -1,3 +1,4 @@
+import { CachedImage } from "../ui/CachedImage";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLauncherStore } from "../../stores";
@@ -8,6 +9,7 @@ import { GlowButton } from "../ui/GlowButton";
 import { GlassInput } from "../ui/FormControls";
 import { Select } from "../ui/Select";
 import { InstallOverlay } from "../ui/InstallOverlay";
+import { alertDialog, promptDialog } from "../ui/Dialog";
   import {
     Monitor, Plus, Trash2, Download, Play, Settings as SettingsIcon,
     ChevronRight, Package, AlertCircle, Check, FolderOpen, Zap, Clock,
@@ -346,8 +348,8 @@ export function InstancesPage() {
   const handleExportConfig = async (name: string) => {
     try {
       const result: any = await invoke("export_config", { instanceName: name });
-      if (result?.path) alert(`Config exported to: ${result.path}`);
-      else if (result?.success === false) alert(`Export failed: ${result.error || "Unknown error"}`);
+      if (result?.path) alertDialog("Config Exported", `Config exported to: ${result.path}`);
+      else if (result?.success === false) alertDialog("Export Failed", result.error || "Unknown error");
     } catch (err) {
       console.error("Failed to export config:", err);
     }
@@ -359,7 +361,7 @@ export function InstancesPage() {
     const filePath = (file as any).path || file.name;
     try {
       await invoke("import_config", { instanceName: selectedDetail, filePath });
-      alert("Config imported successfully");
+      alertDialog("Import Complete", "Config imported successfully");
     } catch (err) {
       console.error("Failed to import config:", err);
     }
@@ -567,7 +569,7 @@ export function InstancesPage() {
         style={{
           background: themeColors.bg_nav,
           borderLeft: `1px solid ${themeColors.border}`,
-          backdropFilter: "blur(30px) saturate(1.4)",
+          backdropFilter: "blur(12px) saturate(1.4)",
         }}
       >
         <div className="flex items-center justify-between">
@@ -670,7 +672,8 @@ export function InstancesPage() {
             )}
             <p className="text-[10px] leading-snug" style={{ color: themeColors.text_muted }}>
               The profile is created in your game directory. Memory allocation and
-              JVM flags are set once in Settings &rarr; Java &amp; Game.
+              JVM flags can be set per profile later from Profiles &rarr; &bull;&bull;&bull;
+              More options &rarr; JVM &amp; RAM Settings.
             </p>
           </div>
         </details>
@@ -941,17 +944,20 @@ export function InstancesPage() {
                           <Download size={12} /> {installing === inst.name ? "..." : "Install"}
                         </GlowButton>
                       )}
-                      <GlowButton size="sm" variant="secondary" onClick={(e) => {
+                      <GlowButton size="sm" variant="secondary" onClick={async (e) => {
                         e.stopPropagation();
-                        const newName = window.prompt("New instance name:");
+                        const newName = await promptDialog("Clone Instance", "Enter a name for the new instance copy:", { placeholder: "New instance name", confirmLabel: "Clone" });
                         if (newName && newName.trim()) {
-                          api.clone.instance(inst.name, newName.trim()).then(async (result) => {
+                          try {
+                            const result = await api.clone.instance(inst.name, newName.trim());
                             if (result.success) {
                               await loadInstances();
                             } else {
-                              alert(`Clone failed: ${result.error || "Unknown error"}`);
+                              alertDialog("Clone Failed", result.error || "Unknown error");
                             }
-                          });
+                          } catch (err: any) {
+                            alertDialog("Clone Failed", err?.message || "Unknown error");
+                          }
                         }
                       }} className="flex items-center gap-1">
                         <Copy size={12} /> Clone
@@ -973,11 +979,11 @@ export function InstancesPage() {
                     style={{ background: `${themeColors.accent}10`, border: `1px solid ${themeColors.border}` }}
                     onClick={() => fileInputRef.current?.click()}>
                     {instanceIcon ? (
-                      <img src={instanceIcon} alt="" className="w-full h-full object-cover" />
+                      <CachedImage src={instanceIcon} alt="" className="w-full h-full object-cover" />
                     ) : (
                       <Monitor size={20} style={{ color: themeColors.accent }} />
                     )}
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <div className="absolute inset-0 bg-[#090B0E]/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <Image size={14} className="text-white" />
                     </div>
                     <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleIconUpload} />
@@ -1101,7 +1107,7 @@ export function InstancesPage() {
                       </GlowButton>
                     )}
                     {detailInstance.installed && (
-                      <GlowButton size="sm" onClick={() => { setSelectedInstance(detailInstance.name); setPage("configeditor"); }} variant="secondary" className="flex items-center gap-1">
+                      <GlowButton size="sm" onClick={() => { setSelectedInstance(detailInstance); setPage("configeditor"); }} variant="secondary" className="flex items-center gap-1">
                         <SettingsIcon size={12} /> Config Editor
                       </GlowButton>
                     )}
@@ -1110,7 +1116,12 @@ export function InstancesPage() {
                         setLoading(true, "Checking for mod updates...");
                         try {
                           const result = await api.modUpdates.check(detailInstance.name);
-                          alert(`Found ${(result as any).updates?.length || 0} update(s)`);
+                          const count = (result as any).updates?.length || 0;
+                          if (count === 0) {
+                            alertDialog("Mod Updates", "All mods are up to date. No updates found.");
+                          } else {
+                            alertDialog("Mod Updates Found", `Found ${count} update(s) available for your mods.`);
+                          }
                         } catch {}
                         setLoading(false);
                       }} variant="secondary" className="flex items-center gap-1">
@@ -1124,9 +1135,9 @@ export function InstancesPage() {
                           const result = await api.conflicts.detect(detailInstance.name);
                           const conflicts = (result as any).conflicts || [];
                           if (conflicts.length === 0) {
-                            alert("No mod conflicts detected!");
+                            alertDialog("No Conflicts", "No mod conflicts detected!");
                           } else {
-                            alert(`Found ${conflicts.length} conflict(s):\n${conflicts.map((c: any) => `${c.mod1} vs ${c.mod2}: ${c.reason}`).join("\n")}`);
+                            alertDialog(`Found ${conflicts.length} Conflict(s)`, conflicts.map((c: any) => `${c.mod1} vs ${c.mod2}: ${c.reason}`).join("\n"));
                           }
                         } catch {}
                         setLoading(false);
@@ -1140,9 +1151,9 @@ export function InstancesPage() {
                         try {
                           const result = await api.export.mrpack(detailInstance.name, detailInstance.name, detailInstance.version, `${detailInstance.name}.mrpack`);
                           if ((result as any).success) {
-                            alert(`Exported to: ${(result as any).path}`);
+                            alertDialog("Export Complete", `Exported to: ${(result as any).path}`);
                           } else {
-                            alert(`Export failed: ${(result as any).error}`);
+                            alertDialog("Export Failed", (result as any).error);
                           }
                         } catch {}
                         setLoading(false);
@@ -1205,7 +1216,7 @@ export function InstancesPage() {
                             <input type="checkbox" checked={selectedBatchMods.has(mod.slug)}
                               onChange={() => toggleBatchMod(mod.slug)}
                               className="w-3.5 h-3.5 rounded shrink-0" style={{ accentColor: themeColors.accent }} />
-                            {mod.icon_url && <img src={mod.icon_url} alt="" className="w-6 h-6 rounded object-cover shrink-0" />}
+                            {mod.icon_url && <CachedImage src={mod.icon_url} alt="" className="w-6 h-6 rounded object-cover shrink-0" />}
                             <div className="min-w-0">
                               <div className="text-xs font-medium truncate" style={{ color: themeColors.text_main }}>{mod.title}</div>
                               <div className="text-[9px] truncate" style={{ color: themeColors.text_muted }}>↓ {mod.downloads?.toLocaleString()}</div>
@@ -1288,7 +1299,7 @@ export function InstancesPage() {
                         <div key={rp.slug} className="flex items-center justify-between px-2 py-1.5 rounded-lg"
                           style={{ background: `${themeColors.bg_card2}`, border: `1px solid ${themeColors.border}` }}>
                           <div className="flex items-center gap-2 min-w-0">
-                            {rp.icon_url && <img src={rp.icon_url} alt="" className="w-6 h-6 rounded object-cover shrink-0" />}
+                            {rp.icon_url && <CachedImage src={rp.icon_url} alt="" className="w-6 h-6 rounded object-cover shrink-0" />}
                             <div className="min-w-0">
                               <div className="text-xs font-medium truncate" style={{ color: themeColors.text_main }}>{rp.title}</div>
                               <div className="text-[9px] truncate" style={{ color: themeColors.text_muted }}>↓ {rp.downloads?.toLocaleString()}</div>
@@ -1367,7 +1378,7 @@ export function InstancesPage() {
                         <div key={mp.slug} className="flex items-center justify-between px-2 py-2 rounded-lg"
                           style={{ background: `${themeColors.bg_card2}`, border: `1px solid ${themeColors.border}` }}>
                           <div className="flex items-center gap-2 min-w-0">
-                            {mp.icon_url && <img src={mp.icon_url} alt="" className="w-8 h-8 rounded object-cover shrink-0" />}
+                            {mp.icon_url && <CachedImage src={mp.icon_url} alt="" className="w-8 h-8 rounded object-cover shrink-0" />}
                             <div className="min-w-0">
                               <div className="text-xs font-medium truncate" style={{ color: themeColors.text_main }}>{mp.title}</div>
                               <div className="text-[9px] truncate" style={{ color: themeColors.text_muted }}>{mp.description?.slice(0, 80)}</div>
@@ -1464,7 +1475,7 @@ export function InstancesPage() {
                       <div className="w-16 h-16 rounded-xl overflow-hidden flex items-center justify-center"
                         style={{ background: `${themeColors.accent}10`, border: `2px dashed ${themeColors.border}` }}>
                         {instanceIcon ? (
-                          <img src={instanceIcon} alt="" className="w-full h-full object-cover" />
+                          <CachedImage src={instanceIcon} alt="" className="w-full h-full object-cover" />
                         ) : (
                           <Monitor size={24} style={{ color: themeColors.text_muted }} />
                         )}

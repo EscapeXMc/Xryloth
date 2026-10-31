@@ -141,7 +141,7 @@ export function UserStatus() {
             style={{
               background: `${themeColors.bg_card}ee`,
               border: `1px solid ${themeColors.border}50`,
-              backdropFilter: "blur(24px)",
+              backdropFilter: "blur(12px)",
               boxShadow: `0 8px 32px rgba(0,0,0,0.4)`,
             }}
           >

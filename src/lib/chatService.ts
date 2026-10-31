@@ -425,3 +425,13 @@ export function setupPresence() {
   const userRef = ref(db, `users/${user.uid}`);
   update(userRef, { status: "online", lastSeen: Date.now() });
 }
+
+/** Update the current user's presence status (Online / Away / Do Not Disturb).
+ * Stored alongside `lastSeen` so the UI can render idle/dnd pings. */
+export type PresenceStatus = "online" | "away" | "dnd";
+export function setUserStatus(status: PresenceStatus) {
+  const user = auth.currentUser;
+  if (!user) return;
+  const userRef = ref(db, `users/${user.uid}`);
+  update(userRef, { status, lastSeen: Date.now() });
+}

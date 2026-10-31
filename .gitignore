@@ -36,3 +36,11 @@ xryloth-installer/
 src-tauri/xryloth-installer/
 src-tauri/*_setup.exe
 src-tauri/xryloth_installer_*.exe
+
+# Local-only working data — never part of a release
+cache/
+insight-wrap-android/
+minecraft-mods/
+minecraft-plugins/
+xryloth-website-source/
+webkit2gtk-4.0.pc

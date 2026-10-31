@@ -46,8 +46,8 @@ export function Tooltip({ children, content, shortcut, side = "right", delay = 4
               style={{
                 background: themeColors.bg_glass,
                 border: `1px solid ${themeColors.border}`,
-                backdropFilter: "blur(16px)",
-                WebkitBackdropFilter: "blur(16px)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
                 boxShadow: `0 8px 32px rgba(0,0,0,0.4)`,
               }}
             >

@@ -6,7 +6,7 @@ export function LoadingOverlay() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex flex-col items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
+      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }}>
       <div className="relative w-16 h-16 mb-4">
         <div className="absolute inset-0 rounded-full border-2 animate-spin"
           style={{ borderColor: "transparent", borderTopColor: themeColors.accent, borderRightColor: `${themeColors.accent}40` }} />

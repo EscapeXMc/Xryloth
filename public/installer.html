@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xryloth Installer</title>
+    <style>
+        :root {
+            --bg-0: #07080b;
+            --bg-1: #0b0d12;
+            --glass: rgba(22, 25, 34, 0.55);
+            --glass-2: rgba(19, 22, 28, 0.72);
+            --stroke: rgba(255, 255, 255, 0.08);
+            --stroke-strong: rgba(255, 255, 255, 0.14);
+            --accent: #e06b22;
+            --accent-soft: rgba(224, 107, 34, 0.16);
+            --accent-glow: rgba(224, 107, 34, 0.45);
+            --text-main: #f4f4f5;
+            --text-sub: #a1a1aa;
+            --text-muted: #6b7280;
+            --success: #22c55e;
+            --warn: #f59e0b;
+            --danger: #ef4444;
+            --blue: #3b82f6;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body { height: 100%; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background:
+                radial-gradient(1200px 600px at 15% -10%, rgba(224, 107, 34, 0.10), transparent 55%),
+                radial-gradient(1000px 700px at 110% 110%, rgba(59, 130, 246, 0.08), transparent 55%),
+                linear-gradient(160deg, var(--bg-1) 0%, var(--bg-0) 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Ambient floating orbs for depth */
+        body::before, body::after {
+            content: '';
+            position: fixed;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            filter: blur(70px);
+        }
+        body::before {
+            width: 320px; height: 320px; top: -80px; left: -80px;
+            background: radial-gradient(circle, rgba(224, 107, 34, 0.22), transparent 70%);
+        }
+        body::after {
+            width: 300px; height: 300px; bottom: -90px; right: -70px;
+            background: radial-gradient(circle, rgba(234, 88, 12, 0.16), transparent 70%);
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 460px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            width: 100%;
+        }
+
+        .header { text-align: center; margin-bottom: 1.75rem; }
+
+        .logo {
+            width: 78px; height: 78px;
+            margin: 0 auto 0.9rem;
+            border-radius: 22px;
+            background: linear-gradient(150deg, rgba(224, 107, 34, 0.9), rgba(234, 88, 12, 0.7));
+            box-shadow: 0 10px 34px rgba(224, 107, 34, 0.35), inset 0 1px 0 rgba(255,255,255,0.25);
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+        }
+        .logo img { width: 100%; height: 100%; object-fit: contain; }
+        .logo-fallback { display: none; color: #fff; }
+        .logo-fallback svg { width: 40px; height: 40px; }
+
+        h1 {
+            font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #ffffff 0%, #d4d4d8 60%, var(--accent) 130%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .subtitle { color: var(--text-sub); font-size: 0.9rem; margin-top: 0.25rem; }
+
+        .card {
+            background: var(--glass);
+            border: 1px solid var(--stroke);
+            border-radius: 18px;
+            padding: 1.25rem;
+            margin-bottom: 0.9rem;
+            backdrop-filter: blur(16px) saturate(140%);
+            -webkit-backdrop-filter: blur(16px) saturate(140%);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+
+        .card-title {
+            font-size: 0.95rem; font-weight: 700; margin-bottom: 1rem;
+            display: flex; align-items: center; gap: 0.6rem;
+        }
+        .card-title .icon-chip {
+            width: 30px; height: 30px; border-radius: 9px;
+            display: inline-flex; align-items: center; justify-content: center;
+            background: var(--accent-soft); color: var(--accent);
+            border: 1px solid rgba(224, 107, 34, 0.25);
+        }
+        .card-title .icon-chip svg { width: 16px; height: 16px; }
+
+        .form-group { margin-bottom: 0.9rem; }
+
+        label {
+            display: flex; align-items: center; gap: 0.4rem;
+            font-size: 0.78rem; font-weight: 600; color: var(--text-sub);
+            margin-bottom: 0.45rem; text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        label svg { width: 13px; height: 13px; opacity: 0.8; }
+
+        input[type="text"], select {
+            width: 100%; padding: 0.7rem 0.9rem;
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid var(--stroke); border-radius: 11px;
+            color: var(--text-main); font-size: 0.9rem; font-family: inherit;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        input:focus, select:focus {
+            outline: none; border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-soft);
+        }
+
+        .checkbox-group { display: flex; flex-direction: column; gap: 0.55rem; }
+
+        .checkbox-item {
+            display: flex; align-items: center; gap: 0.7rem; cursor: pointer;
+            padding: 0.5rem 0.65rem; border-radius: 10px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid transparent;
+            transition: background 0.18s, border-color 0.18s;
+        }
+        .checkbox-item:hover { background: rgba(255, 255, 255, 0.045); border-color: var(--stroke); }
+        .checkbox-item input[type="checkbox"] {
+            width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer;
+        }
+        .checkbox-item .cb-icon { color: var(--text-sub); display: inline-flex; }
+        .checkbox-item .cb-icon svg { width: 15px; height: 15px; }
+        .checkbox-item label {
+            margin: 0; font-weight: 500; cursor: pointer; text-transform: none;
+            letter-spacing: 0; font-size: 0.85rem; color: var(--text-main);
+        }
+
+        .progress-section { margin-top: 0.9rem; }
+        .progress-bar {
+            height: 8px; background: rgba(0, 0, 0, 0.4);
+            border-radius: 6px; overflow: hidden; margin-bottom: 0.5rem;
+            border: 1px solid var(--stroke);
+        }
+        .progress-fill {
+            height: 100%; width: 0%;
+            background: linear-gradient(90deg, var(--accent), #f59e0b);
+            border-radius: 6px; transition: width 0.3s ease;
+            box-shadow: 0 0 14px var(--accent-glow);
+        }
+        .progress-text {
+            font-size: 0.8rem; color: var(--text-sub);
+            display: flex; justify-content: space-between;
+        }
+
+        .btn {
+            width: 100%; padding: 0.9rem 1.25rem;
+            border: none; border-radius: 13px;
+            font-size: 0.95rem; font-weight: 700; cursor: pointer;
+            transition: transform 0.18s, box-shadow 0.2s, filter 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+            font-family: inherit;
+        }
+        .btn svg { width: 17px; height: 17px; }
+        .btn + .btn { margin-top: 0.6rem; }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent) 0%, #f97316 100%);
+            color: #fff;
+            box-shadow: 0 10px 30px rgba(224, 107, 34, 0.35);
+        }
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 40px rgba(224, 107, 34, 0.5);
+        }
+        .btn-primary:active:not(:disabled) { transform: translateY(0); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-main);
+            border: 1px solid var(--stroke-strong);
+            backdrop-filter: blur(10px);
+        }
+        .btn-secondary:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); }
+
+        .btn-danger {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.9), #dc2626 100%);
+            color: #fff;
+            box-shadow: 0 8px 24px rgba(239, 68, 68, 0.28);
+        }
+        .btn-danger:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(239, 68, 68, 0.4);
+        }
+
+        .status-badge {
+            display: inline-flex; align-items: center; gap: 0.45rem;
+            padding: 0.4rem 0.85rem; border-radius: 30px;
+            font-size: 0.75rem; font-weight: 700;
+        }
+        .status-badge svg { width: 13px; height: 13px; }
+        .status-installed { background: rgba(34, 197, 94, 0.16); color: var(--success); border: 1px solid rgba(34, 197, 94, 0.3); }
+        .status-not-installed { background: rgba(239, 68, 68, 0.16); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+        .status-updating { background: rgba(59, 130, 246, 0.16); color: var(--blue); border: 1px solid rgba(59, 130, 246, 0.3); }
+
+        .version-info {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0.7rem 0.85rem;
+            background: rgba(0, 0, 0, 0.28);
+            border: 1px solid var(--stroke);
+            border-radius: 12px; margin-bottom: 0.65rem;
+        }
+        .version-info:last-child { margin-bottom: 0; }
+        .version-label {
+            font-size: 0.78rem; color: var(--text-sub);
+            display: flex; align-items: center; gap: 0.45rem;
+        }
+        .version-label svg { width: 14px; height: 14px; opacity: 0.75; }
+        .version-value { font-family: 'SFMono-Regular', Consolas, monospace; font-weight: 600; font-size: 0.85rem; }
+
+        .divider { height: 1px; background: var(--stroke); margin: 1.25rem 0; }
+
+        .uninstall-warning {
+            background: rgba(239, 68, 68, 0.06);
+            border: 1px solid rgba(239, 68, 68, 0.22);
+            border-radius: 18px; padding: 1.25rem; margin-bottom: 0.9rem;
+        }
+        .uninstall-warning .uw-head {
+            display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.5rem;
+            color: var(--danger); font-weight: 700; font-size: 0.95rem;
+        }
+        .uninstall-warning .uw-head .icon-chip {
+            width: 30px; height: 30px; border-radius: 9px;
+            display: inline-flex; align-items: center; justify-content: center;
+            background: rgba(239, 68, 68, 0.14); color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.28);
+        }
+        .uninstall-warning .uw-head .icon-chip svg { width: 16px; height: 16px; }
+        .uninstall-warning p { color: var(--text-sub); font-size: 0.85rem; line-height: 1.55; margin-bottom: 0.9rem; }
+
+        .footer { text-align: center; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--stroke); }
+        .footer a { color: #f59e0b; text-decoration: none; font-weight: 600; }
+        .footer a:hover { text-decoration: underline; }
+        .footer .brand {
+            margin-top: 0.6rem; font-size: 0.72rem; color: var(--text-muted);
+            display: inline-flex; align-items: center; gap: 0.35rem;
+        }
+        .footer .brand svg { width: 12px; height: 12px; color: var(--danger); }
+
+        .hidden { display: none !important; }
+        .fade-in { animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .spinner {
+            width: 16px; height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            border-top-color: currentColor; border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .toast {
+            position: fixed; bottom: 1.5rem; left: 50%;
+            transform: translateX(-50%);
+            padding: 0.8rem 1.2rem;
+            background: var(--glass-2);
+            border: 1px solid var(--stroke-strong);
+            border-radius: 13px;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+            z-index: 1000; animation: slideUp 0.3s ease;
+            display: flex; align-items: center; gap: 0.55rem;
+            font-size: 0.85rem; font-weight: 600;
+        }
+        .toast svg { width: 16px; height: 16px; }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        .toast-success { border-left: 3px solid var(--success); }
+        .toast-error { border-left: 3px solid var(--danger); }
+        .toast-info { border-left: 3px solid var(--blue); }
+
+        .confirm-dialog {
+            position: fixed; inset: 0;
+            background: rgba(4, 5, 8, 0.72);
+            backdrop-filter: blur(6px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+        }
+        .confirm-dialog.active { opacity: 1; pointer-events: auto; }
+        .confirm-dialog .dialog-box {
+            background: var(--glass-2);
+            border: 1px solid var(--stroke-strong);
+            border-radius: 20px; padding: 1.75rem;
+            max-width: 380px; margin: 1rem;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+            transform: scale(0.92); transition: transform 0.2s;
+        }
+        .confirm-dialog.active .dialog-box { transform: scale(1); }
+        .confirm-dialog .dlg-icon {
+            width: 44px; height: 44px; border-radius: 13px;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(239, 68, 68, 0.14); color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.3); margin-bottom: 1rem;
+        }
+        .confirm-dialog .dlg-icon svg { width: 22px; height: 22px; }
+        .confirm-dialog h3 { margin-bottom: 0.6rem; font-size: 1.1rem; }
+        .confirm-dialog p { color: var(--text-sub); margin-bottom: 1.4rem; line-height: 1.6; font-size: 0.88rem; }
+        .confirm-actions { display: flex; gap: 0.75rem; justify-content: flex-end; }
+        .confirm-actions .btn { width: auto; padding: 0.7rem 1.2rem; }
+    </style>
+</head>
+<body>
+    <!-- Shared SVG icon sprite (stroke-based, no emoji) -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <defs>
+            <g id="i-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 4l16 16M20 4L4 20"/>
+            </g>
+            <g id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M4 21h16"/>
+            </g>
+            <g id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>
+            </g>
+            <g id="i-update" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 19V7"/><path d="M7 12l5-5 5 5"/><path d="M4 3h16" opacity="0"/>
+            </g>
+            <g id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/>
+            </g>
+            <g id="i-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/>
+            </g>
+            <g id="i-monitor" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+            </g>
+            <g id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 17v5"/><path d="M9 3h6l-1 6 3 3v2H7v-2l3-3z"/>
+            </g>
+            <g id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+            </g>
+            <g id="i-rocket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 15c-1.5 1.5-2 5-2 5s3.5-.5 5-2c.7-.7.7-1.8 0-2.5-.7-.6-1.8-.6-3 .5z"/><path d="M15 15l-3-3c1-3.5 3.5-7 8-8 .5 4.5-3 7-5 8z"/><path d="M9 12H5s.5-3 2-4c1.5-1 4-2 4-2"/>
+            </g>
+            <g id="i-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            </g>
+            <g id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/>
+            </g>
+            <g id="i-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>
+            </g>
+            <g id="i-heart" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                <path d="M12 21s-7-4.5-9.5-9C.9 8.5 2.5 5 6 5c2 0 3.2 1.2 4 2.3C10.8 6.2 12 5 14 5c3.5 0 5.1 3.5 3.5 7-2.5 4.5-9.5 9-9.5 9z" transform="translate(2 0)"/>
+            </g>
+            <g id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>
+            </g>
+            <g id="i-cpu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/>
+            </g>
+        </defs>
+    </svg>
+
+    <div class="container">
+        <header class="header">
+            <div class="logo" id="logoContainer">
+                <img src="/logo.png" alt="Xryloth" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <span class="logo-fallback"><svg><use href="#i-logo"/></svg></span>
+            </div>
+            <h1>Xryloth Installer</h1>
+            <p class="subtitle" id="subtitle">Minecraft Launcher with AI Assistant</p>
+        </header>
+
+        <!-- Status Card -->
+        <div class="card fade-in" id="statusCard">
+            <div class="version-info">
+                <span class="version-label"><svg><use href="#i-cpu"/></svg> Current Version</span>
+                <span class="version-value" id="currentVersion">Checking...</span>
+            </div>
+            <div class="version-info">
+                <span class="version-label"><svg><use href="#i-box"/></svg> Latest Version</span>
+                <span class="version-value" id="latestVersion">Fetching...</span>
+            </div>
+            <div class="version-info" style="margin-bottom: 0;">
+                <span class="version-label"><svg><use href="#i-shield"/></svg> Status</span>
+                <span class="status-badge status-not-installed" id="statusBadge">Not Installed</span>
+            </div>
+        </div>
+
+        <!-- Install Config Card -->
+        <div class="card fade-in" id="configCard">
+            <div class="card-title">
+                <span class="icon-chip"><svg><use href="#i-folder"/></svg></span>
+                Installation Settings
+            </div>
+
+            <div class="form-group">
+                <label for="installDir"><svg><use href="#i-folder"/></svg> Install Directory</label>
+                <input type="text" id="installDir" value="" placeholder="/home/user/Xryloth" readonly>
+            </div>
+
+            <div class="checkbox-group">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="desktopShortcut" checked>
+                    <span class="cb-icon"><svg><use href="#i-monitor"/></svg></span>
+                    <label for="desktopShortcut">Create Desktop Shortcut</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="taskbarShortcut" checked>
+                    <span class="cb-icon"><svg><use href="#i-pin"/></svg></span>
+                    <label for="taskbarShortcut">Pin to Taskbar / Dock</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="startMenuShortcut" checked>
+                    <span class="cb-icon"><svg><use href="#i-grid"/></svg></span>
+                    <label for="startMenuShortcut">Add to Start Menu / Applications</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="autoStart">
+                    <span class="cb-icon"><svg><use href="#i-rocket"/></svg></span>
+                    <label for="autoStart">Launch on System Startup</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Card -->
+        <div class="card hidden" id="progressCard">
+            <div class="card-title">
+                <span class="icon-chip"><svg><use href="#i-download"/></svg></span>
+                <span id="progressTitle">Installing...</span>
+                <span class="spinner" id="progressSpinner"></span>
+            </div>
+            <div class="progress-section">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text">
+                    <span id="progressMessage">Starting...</span>
+                    <span id="progressPercent">0%</span>
+                </div>
+                <div class="progress-text" style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem;">
+                    <span id="progressBytes">0 B / 0 B</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div id="actionButtons" class="fade-in">
+            <button class="btn btn-primary" id="installBtn" onclick="handleInstall()">
+                <svg><use href="#i-download"/></svg>
+                <span id="installBtnText">Install Xryloth</span>
+            </button>
+            <button class="btn btn-secondary hidden" id="updateBtn" onclick="handleUpdate()">
+                <svg><use href="#i-update"/></svg>
+                <span>Update to Latest</span>
+            </button>
+            <button class="btn btn-secondary" id="refreshBtn" onclick="refreshStatus()">
+                <svg><use href="#i-refresh"/></svg>
+                <span>Refresh Status</span>
+            </button>
+        </div>
+
+        <!-- Danger Zone -->
+        <div class="divider"></div>
+        <div class="uninstall-warning" id="uninstallCard">
+            <div class="uw-head">
+                <span class="icon-chip"><svg><use href="#i-warn"/></svg></span>
+                Danger Zone
+            </div>
+            <p>Uninstalling will remove the Xryloth Launcher and all of its files from your system. This action cannot be undone.</p>
+            <button class="btn btn-danger" onclick="showUninstallConfirm()">
+                <svg><use href="#i-trash"/></svg>
+                Uninstall Xryloth
+            </button>
+        </div>
+
+        <footer class="footer">
+            <p>By installing, you agree to the <a href="https://xrylothclient.vercel.app/terms/" target="_blank">Terms of Service</a> and <a href="https://xrylothclient.vercel.app/privacy/" target="_blank">Privacy Policy</a></p>
+            <span class="brand" id="footerBrand">Xryloth — Made with <svg><use href="#i-heart"/></svg> by EscapeX</span>
+        </footer>
+    </div>
+
+    <!-- Confirmation Dialog -->
+    <div class="confirm-dialog" id="confirmDialog">
+        <div class="dialog-box">
+            <div class="dlg-icon"><svg><use href="#i-warn"/></svg></div>
+            <h3 id="confirmTitle">Confirm Action</h3>
+            <p id="confirmMessage">Are you sure you want to proceed?</p>
+            <div class="confirm-actions">
+                <button class="btn btn-secondary" onclick="hideConfirmDialog()">Cancel</button>
+                <button class="btn btn-danger" id="confirmActionBtn" onclick="executeConfirmAction()">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tauri API
+        // Tauri v1 global API shape: window.__TAURI__.tauri (invoke),
+        // window.__TAURI__.event (listen), window.__TAURI__.dialog (open).
+        // (There is no .core module in v1 — that's Tauri v2.)
+        const __TAURI_API__ = window.__TAURI__ || {};
+        const { invoke } = __TAURI_API__.tauri || __TAURI_API__.core || {};
+        const { listen } = __TAURI_API__.event || {};
+        const { open } = __TAURI_API__.dialog || {};
+
+        // State
+        let currentVersion = null;
+        let latestVersion = null;
+        let isInstalled = false;
+        let confirmCallback = null;
+
+        // DOM Elements
+        const elements = {
+            currentVersion: document.getElementById('currentVersion'),
+            latestVersion: document.getElementById('latestVersion'),
+            statusBadge: document.getElementById('statusBadge'),
+            subtitle: document.getElementById('subtitle'),
+            installDir: document.getElementById('installDir'),
+            desktopShortcut: document.getElementById('desktopShortcut'),
+            taskbarShortcut: document.getElementById('taskbarShortcut'),
+            startMenuShortcut: document.getElementById('startMenuShortcut'),
+            autoStart: document.getElementById('autoStart'),
+            progressCard: document.getElementById('progressCard'),
+            progressTitle: document.getElementById('progressTitle'),
+            progressFill: document.getElementById('progressFill'),
+            progressMessage: document.getElementById('progressMessage'),
+            progressPercent: document.getElementById('progressPercent'),
+            progressBytes: document.getElementById('progressBytes'),
+            progressSpinner: document.getElementById('progressSpinner'),
+            installBtn: document.getElementById('installBtn'),
+            installBtnText: document.getElementById('installBtnText'),
+            updateBtn: document.getElementById('updateBtn'),
+            refreshBtn: document.getElementById('refreshBtn'),
+            confirmDialog: document.getElementById('confirmDialog'),
+            confirmTitle: document.getElementById('confirmTitle'),
+            confirmMessage: document.getElementById('confirmMessage'),
+            confirmActionBtn: document.getElementById('confirmActionBtn'),
+            statusCard: document.getElementById('statusCard'),
+            footerBrand: document.getElementById('footerBrand'),
+        };
+
+        // Surface ANY script/init error visibly instead of leaving the UI stuck
+        // on the static "Checking..."/"Fetching..." placeholders.
+        function surfaceError(where, err) {
+            try {
+                const msg = (err && (err.message || err.toString())) || String(err);
+                console.error('[installer]', where, msg);
+                if (elements.statusBadge) {
+                    elements.statusBadge.textContent = 'Error';
+                    elements.statusBadge.className = 'status-badge status-updating';
+                }
+                if (elements.subtitle) {
+                    elements.subtitle.textContent = where + ': ' + msg;
+                }
+            } catch (e) { /* never throw from the error handler */ }
+        }
+        window.addEventListener('error', (e) => surfaceError('Script error', e.error || e.message));
+        window.addEventListener('unhandledrejection', (e) => surfaceError('Async error', e.reason));
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                if (typeof invoke !== 'function') {
+                    throw new Error('Tauri API not available (window.__TAURI__=' + typeof window.__TAURI__ + ')');
+                }
+                await checkStatus();
+                loadConfig();
+            } catch (e) {
+                surfaceError('Init failed', e);
+            }
+        });
+
+        async function checkStatus() {
+            try {
+                const installed = await invoke('installer_check_installed');
+                isInstalled = installed;
+
+                if (installed) {
+                    elements.statusBadge.textContent = 'Installed';
+                    elements.statusBadge.className = 'status-badge status-installed';
+                    elements.installBtn.classList.add('hidden');
+                    elements.updateBtn.classList.remove('hidden');
+                    elements.subtitle.textContent = 'Xryloth is installed. Check for updates.';
+
+                    try {
+                        const release = await invoke('installer_fetch_release');
+                        latestVersion = release.tag_name;
+                        elements.latestVersion.textContent = release.tag_name;
+                        updateFooter(release.tag_name);
+
+                        const config = await invoke('installer_get_config');
+                        currentVersion = config.version || 'Unknown';
+                        elements.currentVersion.textContent = currentVersion;
+
+                        if (currentVersion !== latestVersion) {
+                            elements.statusBadge.textContent = 'Update Available';
+                            elements.statusBadge.className = 'status-badge status-updating';
+                        } else {
+                            elements.statusBadge.textContent = 'Up to Date';
+                            elements.statusBadge.className = 'status-badge status-installed';
+                        }
+                    } catch (e) {
+                        console.error('Failed to fetch release:', e);
+                    }
+                } else {
+                    elements.statusBadge.textContent = 'Not Installed';
+                    elements.statusBadge.className = 'status-badge status-not-installed';
+                    elements.installBtn.classList.remove('hidden');
+                    elements.updateBtn.classList.add('hidden');
+                    elements.subtitle.textContent = 'Click Install to get started';
+                    elements.currentVersion.textContent = 'Not installed';
+                    elements.latestVersion.textContent = 'Fetching...';
+
+                    try {
+                        const release = await invoke('installer_fetch_release');
+                        latestVersion = release.tag_name;
+                        elements.latestVersion.textContent = release.tag_name;
+                        updateFooter(release.tag_name);
+                    } catch (e) {
+                        console.error('Failed to fetch release:', e);
+                    }
+                }
+            } catch (e) {
+                console.error('Status check failed:', e);
+                showToast('Failed to check installation status', 'error');
+            }
+        }
+
+        function updateFooter(tag) {
+            try {
+                if (elements.footerBrand && tag) {
+                    elements.footerBrand.innerHTML = 'Xryloth ' + tag +
+                        ' — Made with <svg><use href="#i-heart"/></svg> by EscapeX';
+                }
+            } catch (e) {}
+        }
+
+        // Refresh button handler (kept separate from checkStatus)
+        async function refreshStatus() {
+            elements.refreshBtn.disabled = true;
+            await checkStatus();
+            elements.refreshBtn.disabled = false;
+        }
+
+        async function loadConfig() {
+            try {
+                const config = await invoke('installer_get_config');
+                if (config) {
+                    elements.installDir.value = config.install_dir || '';
+                    elements.desktopShortcut.checked = config.create_desktop_shortcut !== false;
+                    elements.taskbarShortcut.checked = config.create_taskbar_shortcut !== false;
+                    elements.startMenuShortcut.checked = config.create_start_menu_shortcut !== false;
+                    elements.autoStart.checked = config.auto_start || false;
+                }
+            } catch (e) {
+                // Use defaults
+            }
+        }
+
+        function saveConfig() {
+            const config = {
+                install_dir: elements.installDir.value || '',
+                create_desktop_shortcut: elements.desktopShortcut.checked,
+                create_taskbar_shortcut: elements.taskbarShortcut.checked,
+                create_start_menu_shortcut: elements.startMenuShortcut.checked,
+                auto_start: elements.autoStart.checked,
+            };
+            invoke('installer_set_config', { config });
+        }
+
+        function getConfig() {
+            return {
+                install_dir: elements.installDir.value || '',
+                create_desktop_shortcut: elements.desktopShortcut.checked,
+                create_taskbar_shortcut: elements.taskbarShortcut.checked,
+                create_start_menu_shortcut: elements.startMenuShortcut.checked,
+                auto_start: elements.autoStart.checked,
+            };
+        }
+
+        function showProgressCard(title) {
+            elements.progressCard.classList.remove('hidden');
+            elements.progressTitle.textContent = title;
+            elements.progressFill.style.width = '0%';
+            elements.progressPercent.textContent = '0%';
+            elements.progressMessage.textContent = 'Starting...';
+            elements.progressMessage.style.color = '';
+            elements.progressBytes.textContent = '0 B / 0 B';
+        }
+
+        function hideProgressCard() {
+            elements.progressCard.classList.add('hidden');
+        }
+
+        async function handleInstall() {
+            saveConfig();
+            const config = getConfig();
+
+            elements.installBtn.disabled = true;
+            elements.installBtnText.textContent = 'Installing...';
+            showProgressCard('Installing Xryloth Launcher');
+
+            try {
+                const result = await invoke('installer_install', { config });
+
+                showToast('Installation complete!', 'success');
+                await checkStatus();
+                hideProgressCard();
+            } catch (e) {
+                elements.progressMessage.textContent = 'Failed: ' + e;
+                elements.progressMessage.style.color = 'var(--danger, #ef4444)';
+                showToast('Installation failed: ' + e, 'error');
+            } finally {
+                elements.installBtn.disabled = false;
+                elements.installBtnText.textContent = 'Install Xryloth';
+            }
+        }
+
+        async function handleUpdate() {
+            saveConfig();
+
+            elements.updateBtn.disabled = true;
+            elements.updateBtn.innerHTML = '<span class="spinner"></span> Updating...';
+            showProgressCard('Updating Xryloth Launcher');
+
+            try {
+                const result = await invoke('installer_update');
+                showToast('Update complete!', 'success');
+                await checkStatus();
+                hideProgressCard();
+            } catch (e) {
+                elements.progressMessage.textContent = 'Failed: ' + e;
+                elements.progressMessage.style.color = 'var(--danger, #ef4444)';
+                showToast('Update failed: ' + e, 'error');
+            } finally {
+                elements.updateBtn.disabled = false;
+                elements.updateBtn.innerHTML = '<svg><use href="#i-update"/></svg><span>Update to Latest</span>';
+            }
+        }
+
+        function showUninstallConfirm() {
+            showConfirmDialog(
+                'Uninstall Xryloth',
+                'This will completely remove Xryloth Launcher and all its files from your system. You will be redirected to a thank you page after uninstallation. This action cannot be undone.',
+                async () => {
+                    try {
+                        const result = await invoke('installer_uninstall');
+                        showToast(result, 'success');
+                        await invoke('installer_open_uninstall_page');
+                        await checkStatus();
+                    } catch (e) {
+                        showToast('Uninstall failed: ' + e, 'error');
+                    }
+                }
+            );
+        }
+
+        function showConfirmDialog(title, message, callback) {
+            elements.confirmTitle.textContent = title;
+            elements.confirmMessage.textContent = message;
+            confirmCallback = callback;
+            elements.confirmDialog.classList.add('active');
+        }
+
+        function hideConfirmDialog() {
+            elements.confirmDialog.classList.remove('active');
+            confirmCallback = null;
+        }
+
+        function executeConfirmAction() {
+            if (confirmCallback) {
+                confirmCallback();
+            }
+            hideConfirmDialog();
+        }
+
+        function showToast(message, type = 'info') {
+            const icons = { success: '#i-check', error: '#i-warn', info: '#i-shield' };
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+            use.setAttribute('href', icons[type] || '#i-shield');
+            icon.appendChild(use);
+            toast.appendChild(icon);
+            toast.appendChild(document.createTextNode(message));
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(-50%) translateY(20px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // Listen for progress updates
+        if (typeof listen === 'function') {
+            listen('installer-progress', (event) => {
+                const progress = event.payload;
+                elements.progressFill.style.width = (progress.progress * 100) + '%';
+                elements.progressPercent.textContent = Math.round(progress.progress * 100) + '%';
+                elements.progressMessage.textContent = progress.message;
+                elements.progressBytes.textContent = formatBytes(progress.downloaded_bytes) + ' / ' + formatBytes(progress.total_bytes);
+            }).catch((e) => console.warn('progress listen failed:', e));
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html>

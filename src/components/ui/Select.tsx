@@ -126,8 +126,8 @@ export function Select({
               background: themeColors.bg_card,
               border: `1px solid ${themeColors.border}`,
               boxShadow: "0 12px 40px rgba(0,0,0,0.55)",
-              backdropFilter: "blur(24px)",
-              WebkitBackdropFilter: "blur(24px)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
             }}
           >
             {options.length === 0 && (

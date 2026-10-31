@@ -6,6 +6,7 @@ import { GlassCard } from "../ui/GlassCard";
 import { GlowButton } from "../ui/GlowButton";
 import { Select } from "../ui/Select";
 import { FileText, Settings, Code, Save, X, FolderOpen } from "lucide-react";
+import { alertDialog } from "../ui/Dialog";
 
 interface ConfigFile {
   name: string;
@@ -60,7 +61,7 @@ function highlightProperties(content: string, themeColors: any) {
 
 export function ConfigEditorPage() {
   const { themeColors, selectedInstance, instances, setPage, setLoading } = useLauncherStore();
-  const [targetInstance, setTargetInstance] = useState(selectedInstance || "");
+  const [targetInstance, setTargetInstance] = useState<string>(selectedInstance?.name || "");
   const [files, setFiles] = useState<ConfigFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<ConfigFile | null>(null);
   const [fileContent, setFileContent] = useState("");
@@ -94,7 +95,7 @@ export function ConfigEditorPage() {
 
   useEffect(() => {
     if (selectedInstance && !targetInstance) {
-      setTargetInstance(selectedInstance);
+      setTargetInstance(selectedInstance.name);
     }
   }, [selectedInstance]);
 
@@ -130,7 +131,7 @@ export function ConfigEditorPage() {
         setBackupNotice(`${selectedFile.name}.bak`);
         setTimeout(() => setBackupNotice(null), 4000);
       } else {
-        alert(`Save failed: ${res.error}`);
+        alertDialog("Save Failed", `Could not save the config file: ${res.error}`);
       }
     } catch (err) {
       console.error("Failed to save file:", err);

@@ -15,16 +15,17 @@ interface Toast {
 
 interface ToastContextValue {
   toast: (type: ToastType, title: string, message?: string, duration?: number) => void;
+  toasts: Toast[];
 }
 
-const ToastContext = createContext<ToastContextValue>({ toast: () => {} });
+const ToastContext = createContext<ToastContextValue>({ toast: () => {}, toasts: [] });
 
 export function useToast() {
   return useContext(ToastContext);
 }
 
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const { themeColors } = useLauncherStore();
+  const themeColors = useLauncherStore((s) => s.themeColors);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const addToast = useCallback((type: ToastType, title: string, message?: string, duration = 4000) => {
@@ -54,7 +55,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <ToastContext.Provider value={{ toast: addToast }}>
+    <ToastContext.Provider value={{ toast: addToast, toasts }}>
       {children}
       <div className="fixed top-12 right-3 z-[9999] flex flex-col gap-2 pointer-events-none" style={{ width: "300px" }}>
         <AnimatePresence>
@@ -69,8 +70,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               style={{
                 background: themeColors.bg_glass,
                 border: `1px solid ${colors[t.type]}30`,
-                backdropFilter: "blur(24px)",
-                WebkitBackdropFilter: "blur(24px)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
                 boxShadow: `0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px ${colors[t.type]}15`,
               }}
             >

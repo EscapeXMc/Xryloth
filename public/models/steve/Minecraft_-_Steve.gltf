@@ -1,0 +1,195 @@
+{
+  "asset": {
+    "generator": "OpenSceneGraph 3.5.6",
+    "version": "2.0"
+  },
+  "accessors": [
+    {
+      "type": "VEC3",
+      "componentType": 5126,
+      "count": 144,
+      "max": [
+        7.9999680519104,
+        3.9999966621398926,
+        20.000062942504883
+      ],
+      "min": [
+        -8,
+        -4,
+        -12
+      ],
+      "bufferView": 0,
+      "byteOffset": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5126,
+      "count": 144,
+      "bufferView": 0,
+      "byteOffset": 12
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5126,
+      "count": 144,
+      "bufferView": 0,
+      "byteOffset": 24
+    },
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 216,
+      "bufferView": 1,
+      "byteOffset": 0
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 4608,
+      "byteStride": 32,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 4608,
+      "byteLength": 432,
+      "target": 34963
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9728,
+      "minFilter": 9986,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "textures": [
+    {
+      "source": 0,
+      "sampler": 0
+    }
+  ],
+  "images": [
+    {
+      "name": "steve.png",
+      "mimeType": "image/png",
+      "uri": "images/steve.png"
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "Minecraft_-_Steve.bin",
+      "byteLength": 5040
+    }
+  ],
+  "materials": [
+    {
+      "name": "02 - Default",
+      "doubleSided": true,
+      "pbrMetallicRoughness": {
+        "metallicFactor": 0,
+        "baseColorTexture": {
+          "index": 0
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Steve_02 - Default_0",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 3
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "21d0206dd6d3419fae876636965f5f90.fbx",
+      "rotation": [
+        0.7071067811865475,
+        0,
+        0,
+        0.7071067811865476
+      ],
+      "children": [
+        1
+      ]
+    },
+    {
+      "name": "RootNode",
+      "children": [
+        2
+      ]
+    },
+    {
+      "name": "Steve",
+      "rotation": [
+        -0.7071067811865475,
+        0,
+        0,
+        0.7071067811865476
+      ],
+      "children": [
+        3
+      ]
+    },
+    {
+      "name": "MatrixTransform_4",
+      "translation": [
+        0,
+        4.768369876728684e-7,
+        -4
+      ],
+      "children": [
+        4
+      ]
+    },
+    {
+      "name": "Steve",
+      "children": [
+        5
+      ]
+    },
+    {
+      "name": "Steve_02 - Default_0",
+      "mesh": 0
+    },
+    {
+      "name": "Sketchfab_model",
+      "translation": [
+        0.39503055810928345,
+        -0.6325706243515015,
+        -64.6672134399414
+      ],
+      "rotation": [
+        -0.5090911748908794,
+        0.2178793426132574,
+        0.3276239945012729,
+        0.7655176549979379
+      ],
+      "children": [
+        0
+      ]
+    }
+  ],
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        6
+      ]
+    }
+  ]
+}

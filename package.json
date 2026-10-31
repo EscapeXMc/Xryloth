@@ -1,7 +1,7 @@
 {
   "name": "xryloth-tauri",
   "private": true,
-  "version": "6.0.0.9",
+  "version": "6.0.0.20",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -23,12 +23,18 @@
     "lucide-react": "^0.300.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
+    "rehype-sanitize": "^6.0.0",
+    "remark-gfm": "^4.0.1",
+    "three": "^0.169.0",
     "zustand": "^4.4.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^1.6.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
+    "@types/three": "^0.169.0",
     "@vitejs/plugin-react": "^4.2.0",
     "autoprefixer": "^10.4.0",
     "postcss": "^8.4.0",

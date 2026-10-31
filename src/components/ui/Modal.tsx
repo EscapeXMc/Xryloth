@@ -31,7 +31,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
         style={{
           background: themeColors.bg_card,
           border: `1px solid ${themeColors.border}`,
-          backdropFilter: "blur(24px)",
+          backdropFilter: "blur(12px)",
         }}
       >
         <div className="flex items-center justify-between mb-4">

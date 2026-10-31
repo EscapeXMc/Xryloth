@@ -1,103 +1,72 @@
-import { motion } from "framer-motion";
-import { useState } from "react";
-import { useLauncherStore } from "../../stores";
-import type { ReactNode } from "react";
+"use client";
 
-interface GlowButtonProps {
-  children: ReactNode;
-  onClick?: (e: React.MouseEvent) => void;
-  variant?: "primary" | "secondary" | "danger";
-  size?: "sm" | "md" | "lg";
-  disabled?: boolean;
-  className?: string;
+import React from "react";
+
+export interface GlowButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: "primary" | "secondary" | "ghost" | "danger" | "fast-danger";
   fullWidth?: boolean;
-  style?: React.CSSProperties;
+  size?: "sm" | "md" | "lg";
+  loading?: boolean;
 }
 
-/**
- * The launcher's button system.
- *
- * Monochrome by design (on the default `black` theme):
- *   primary   — solid white, bold obsidian text. The one loud element on screen.
- *   secondary — white outline on the dark panel; inverts to white fill on hover.
- *   danger    — the only place colour is allowed, because it means "destructive".
- *
- * The white fill is `themeColors.accent` and the text on it is
- * `themeColors.accent_text`, so switching to another theme still produces a
- * legible pair rather than a hardcoded white-on-white.
- */
 export function GlowButton({
   children,
-  onClick,
   variant = "primary",
   size = "md",
-  disabled = false,
+  loading = false,
   className = "",
-  fullWidth = false,
-  style,
+  disabled,
+  ...props
 }: GlowButtonProps) {
-  const { themeColors } = useLauncherStore();
-  const [hovered, setHovered] = useState(false);
+  const base = `
+    flex items-center justify-center gap-2
+    font-bold tinycaps transition-all duration-200
+    transform active:scale-95 disabled:opacity-50
+  `;
 
-  const offWhite = themeColors.accent2 || "#e4e4e7";
-
-  const variants: Record<string, { bg: string; bgHover: string; color: string; border: string; borderHover: string; shadow: string; shadowHover: string }> = {
-    primary: {
-      bg: `linear-gradient(135deg, ${themeColors.accent} 0%, ${offWhite} 100%)`,
-      bgHover: `linear-gradient(135deg, #ffffff 0%, ${themeColors.accent} 100%)`,
-      color: themeColors.accent_text,
-      border: `${themeColors.accent}00`,
-      borderHover: `${themeColors.accent}00`,
-      shadow: `0 4px 18px rgba(0,0,0,0.4)`,
-      shadowHover: `0 6px 26px rgba(0,0,0,0.45), 0 0 0 3px ${themeColors.accent}1f`,
-    },
-    secondary: {
-      bg: "transparent",
-      bgHover: themeColors.accent,
-      color: themeColors.text_main,
-      border: `${themeColors.accent}47`,
-      borderHover: themeColors.accent,
-      shadow: "none",
-      shadowHover: `0 0 0 3px ${themeColors.accent}14`,
-    },
-    danger: {
-      bg: `linear-gradient(135deg, ${themeColors.danger} 0%, ${themeColors.danger}cc 100%)`,
-      bgHover: `linear-gradient(135deg, ${themeColors.danger} 0%, ${themeColors.danger} 100%)`,
-      color: "#ffffff",
-      border: `${themeColors.danger}00`,
-      borderHover: `${themeColors.danger}00`,
-      shadow: `0 4px 18px ${themeColors.danger}30`,
-      shadowHover: `0 6px 26px ${themeColors.danger}45`,
-    },
+  const variants = {
+    primary: `bg-gradient-to-r from-xryloth-500 to-xryloth-900 text-xryloth-accent_text shadow-xryloth-glow hover:shadow-xryloth-glow-hover`,
+    secondary: `bg-[#13161C]/50 border border-white/10 text-white hover:bg-white/10`,
+    ghost: `bg-transparent text-xryloth-400 hover:text-white hover:bg-white/10`,
+    danger: `bg-[#7f1d1d]/50 border border-red-500/30 text-red-400 hover:bg-[#7f1d1d]/80`,
+    "fast-danger": `bg-[#e06b22]/20 border border-fast-accent/30 text-fast-accent hover:bg-[#e06b22]/40`,
   };
 
-  const sizes: Record<string, string> = {
-    sm: "px-3.5 py-1.5 text-[11px] rounded-xl",
-    md: "px-5 py-2.5 text-[12px] rounded-xl",
-    lg: "px-8 py-3.5 text-sm rounded-2xl",
+  const sizes = {
+    sm: "px-3 py-1.5 text-xs",
+    md: "px-4 py-2 text-sm",
+    lg: "px-6 py-3 text-base",
   };
-
-  const v = variants[variant];
 
   return (
-    <motion.button
-      whileTap={disabled ? undefined : { scale: 0.97 }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onClick={disabled ? undefined : onClick}
-      disabled={disabled}
-      className={`tinycaps font-bold transition-all duration-200 relative overflow-hidden ${sizes[size]} ${fullWidth ? "w-full" : ""} ${disabled ? "opacity-30 cursor-not-allowed" : "cursor-pointer"} ${className}`}
-      style={{
-        background: hovered && !disabled ? v.bgHover : v.bg,
-        color: hovered && !disabled && variant === "secondary" ? themeColors.accent_text : v.color,
-        border: `1px solid ${hovered && !disabled ? v.borderHover : v.border}`,
-        boxShadow: disabled ? "none" : hovered ? v.shadowHover : v.shadow,
-        backdropFilter: variant === "secondary" ? "blur(12px)" : undefined,
-        WebkitBackdropFilter: variant === "secondary" ? "blur(12px)" : undefined,
-        ...style,
-      }}
+    <button
+      disabled={disabled || loading}
+      className={`${base} ${variants[variant]} ${sizes[size]} rounded-xl ${className}`}
+      {...props}
     >
-      <span className="relative z-10 flex items-center justify-center gap-1.5">{children}</span>
-    </motion.button>
+      {loading && (
+        <svg
+          className="animate-spin -ml-1 mr-2 h-4 w-4 text-current"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          ></circle>
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l-1.16 1.634c-.705-.928-1.11-2.147-1.11-3.563 0-1.366.35-2.648.92-3.808l1.16-1.634a7.96 7.96 0 00-1.11-2.596zm8.075-2.596c.57-1.271.92-2.444.92-3.808 0-1.366-.35-2.648-.92-3.808l-1.16 1.634c.705.928 1.11 2.147 1.11 3.563 0 1.366-.35 2.648-.92 3.808l-1.16-1.634c-.705-.928-1.11-2.147-1.11-3.563 0-1.366.35-2.648.92-3.808l1.16-1.634c-.705-.928-1.11-2.147-1.11-3.563 0-1.366.35-2.648.92-3.808z"
+          ></path>
+        </svg>
+      )}
+      {children}
+    </button>
   );
 }
