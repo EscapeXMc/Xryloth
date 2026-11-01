@@ -36,7 +36,7 @@ const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 // Release tags use the 4-part marketing version (e.g. v6.0.0.1) while Cargo
 // requires valid semver, so APP_VERSION stays 3-part. Update checks compare
 // against this so a same-release tag never looks "newer".
-const APP_DISPLAY_VERSION: &str = "6.0.0.20";
+const APP_DISPLAY_VERSION: &str = "6.0.0.21";
 const GITHUB_API_URL: &str = "https://api.github.com/repos/EscapeXMc/xryloth/releases/latest";
 const MOJANG_VERSION_MANIFEST: &str = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
 const FABRIC_VERSIONS_URL: &str = "https://meta.fabricmc.net/v2/versions/game";

@@ -770,7 +770,7 @@ fn main() {
                 tauri::WindowUrl::App("installer.html".into()),
             )
             .title("Xryloth Installer")
-            .inner_size(500.0, 600.0)
+            .inner_size(420.0, 470.0)
             .resizable(false)
             .maximizable(false)
             .decorations(true)
