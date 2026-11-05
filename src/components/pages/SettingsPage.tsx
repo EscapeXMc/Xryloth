@@ -32,7 +32,7 @@ const TABS = [
 ];
 
 export function SettingsPage() {
-  const { settings, saveSettings, setPage, themeColors, setTheme, themeName, liveVersion, releaseNotes } = useLauncherStore();
+  const { settings, saveSettings, setPage, themeColors, setTheme, themeName, localVersion, releaseNotes } = useLauncherStore();
   const [tab, setTab] = useState("general");
   const [cleared, setCleared] = useState(false);
   const [local, setLocal] = useState<Record<string, any>>({});
@@ -944,7 +944,7 @@ export function SettingsPage() {
             <GlassCard>
               <h3 className="tinycaps text-sm font-semibold mb-3" style={{ color: themeColors.text_main }}>About Xryloth</h3>
               <div className="space-y-2 text-sm" style={{ color: themeColors.text_sub }}>
-                <p>Version: {liveVersion || "5.9"} (Tauri Rewrite)</p>
+                <p>Version: {localVersion || "5.9"} (Tauri Rewrite)</p>
                 <p>Author: EscapeXOG</p>
                 <p>License: Proprietary — All Rights Reserved</p>
                 <div className="pt-2 flex gap-2">

@@ -37,7 +37,7 @@ export function HeroSection() {
   const instances = useLauncherStore((s) => s.instances);
   const playTimes = useLauncherStore((s) => s.playTimes);
   const setPage = useLauncherStore((s) => s.setPage);
-  const liveVersion = useLauncherStore((s) => s.liveVersion);
+  const localVersion = useLauncherStore((s) => s.localVersion);
   const setLoading = useLauncherStore((s) => s.setLoading);
 
   const [launchTarget, setLaunchTarget] = useState<string | null>(null);
@@ -110,7 +110,7 @@ export function HeroSection() {
           </p>
         </div>
         <div className="text-right hidden sm:block">
-          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">v{liveVersion}</span>
+          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">v{localVersion}</span>
         </div>
       </div>
 

@@ -44,11 +44,11 @@ export function SidebarRail({ currentTab, setTab, isOpen, onClose }: SidebarRail
 
   return (
     <aside
-      className="w-20 bg-[#0A0C0E] border-r border-white/[0.08] flex flex-col items-center justify-between py-6 select-none flex-shrink-0 h-screen"
+      className="w-20 bg-[#0A0C0E]/75 backdrop-blur-md border-r border-white/[0.07] flex flex-col items-center justify-between py-6 select-none flex-shrink-0 h-screen shadow-[inset_-1px_0_0_rgba(255,255,255,0.03)]"
     >
-      {/* Branding / Logo */}
-      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg cursor-pointer mb-6">
-        <Gamepad2 size={18} className="text-white" />
+      {/* Branding / Logo — claymorphic amber ember */}
+      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center cursor-pointer mb-6 clay-ember ring-1 ring-inset ring-white/20">
+        <Gamepad2 size={18} className="text-white drop-shadow" />
       </div>
 
       {/* Navigation Items */}
@@ -63,10 +63,10 @@ export function SidebarRail({ currentTab, setTab, isOpen, onClose }: SidebarRail
                 setPage(item.id);
                 onClose();
               }}
-              className={`flex flex-col items-center gap-1.5 text-[10px] font-medium tracking-wide transition-colors cursor-pointer w-14 ${
+              className={`flex flex-col items-center gap-1.5 text-[10px] font-medium tracking-wide transition-all cursor-pointer w-14 rounded-xl ${
                 active
-                  ? "bg-white/[0.08] text-white rounded-xl py-3 shadow-sm border border-white/[0.05]"
-                  : "text-zinc-500 hover:text-white"
+                  ? "bg-white/[0.09] text-white py-3 border border-white/[0.07] shadow-[0_8px_16px_-8px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.10)]"
+                  : "text-zinc-500 hover:text-white hover:bg-white/[0.04] border border-transparent"
               }`}
               style={{ textDecoration: "none" }}
             >

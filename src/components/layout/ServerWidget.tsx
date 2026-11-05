@@ -231,7 +231,7 @@ export function ServerWidget({ onJoin }: ServerWidgetProps) {
   );
 
   /* --------------------------------- render ----------------------------- */
-  const panel = "rounded-xl border border-white/10 bg-[#13161C]/90 overflow-hidden";
+  const panel = "rounded-xl border border-white/10 bg-[#13161C]/90 clay overflow-hidden";
 
   return (
     <div className="flex flex-col gap-4 h-full min-h-0">

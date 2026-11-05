@@ -95,7 +95,7 @@ function CpuSparkline({ data, color }: { data: number[]; color: string }) {
 export function HomePage() {
   const {
     themeColors: e, instances: t, playTimes: n, systemInfo: s, settings: r,
-    setPage: a, setSelectedInstance: o, setLoading: l, liveVersion, loadPlayTimes: c, loadSystemInfo: u,
+    setPage: a, setSelectedInstance: o, setLoading: l, localVersion, loadPlayTimes: c, loadSystemInfo: u,
   } = useLauncherStore();
 
   const [news, setNews] = useState<NewsItem[]>([]);
@@ -504,7 +504,7 @@ export function HomePage() {
 
           {/* Footer */}
           <div className="flex items-center gap-3 flex-wrap px-1 text-[10px] tinycaps" style={{ color: `${e.text_muted}` }}>
-            <span>Xryloth Client v{liveVersion}</span>
+            <span>Xryloth Client v{localVersion}</span>
             <span className="w-1 h-1 rounded-full inline-block" style={{ background: `${e.border_bright}` }} />
             <button onClick={() => a("announcements")} className="ghost-btn px-1.5 py-0.5">what's new</button>
             <button onClick={() => a("settings")} className="ghost-btn px-1.5 py-0.5">settings</button>

@@ -53,7 +53,7 @@ const sections: NavSection[] = [
 ];
 
 export function TopBar() {
-  const { currentPage, setPage, themeColors, liveVersion } = useLauncherStore();
+  const { currentPage, setPage, themeColors, localVersion } = useLauncherStore();
   const { play: playSound } = useSounds();
 
   let idx = -1;
@@ -180,7 +180,7 @@ export function TopBar() {
           border: `1px solid ${themeColors.border}40`,
           background: `${themeColors.bg_card}80`,
           backdropFilter: "blur(8px)",
-        }}>V{liveVersion}</div>
+        }}>V{localVersion}</div>
       </div>
     </header>
   );

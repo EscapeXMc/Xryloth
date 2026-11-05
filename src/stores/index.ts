@@ -64,6 +64,10 @@ export interface LauncherStore {
     disk_total: number;
   };
   liveVersion: string;
+  // Installed version (APP_DISPLAY_VERSION from the backend) - what the About
+  // page and the version badges must show. liveVersion is the latest GitHub
+  // release tag, which is only equal to the installed one right after a publish.
+  localVersion: string;
   releaseNotes: string;
   sidebarOpen: boolean;
 
@@ -122,6 +126,7 @@ export const useLauncherStore = create<LauncherStore>()(
         disk_total: 0,
       },
       liveVersion: "5.9",
+      localVersion: "5.9",
       releaseNotes: "",
       sidebarOpen: true,
       servers: [],
@@ -266,7 +271,11 @@ export const useLauncherStore = create<LauncherStore>()(
       fetchLiveVersion: async () => {
         try {
           const v = await api.version.getLatest();
-          set({ liveVersion: v.tag || "5.9", releaseNotes: v.notes || "" });
+          set({
+            liveVersion: v.tag || "5.9",
+            localVersion: v.current_version || "5.9",
+            releaseNotes: v.notes || "",
+          });
         } catch {
           set({ liveVersion: "5.9" });
         }

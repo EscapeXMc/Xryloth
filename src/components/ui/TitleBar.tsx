@@ -19,7 +19,7 @@ function avatarUrl(uuid?: string) {
  * red close button (where colour carries meaning).
  */
 export function TitleBar() {
-  const { themeColors, liveVersion, themeMode, setThemeMode, settings } = useLauncherStore();
+  const { themeColors, localVersion, themeMode, setThemeMode, settings } = useLauncherStore();
   const [session, setSession] = useState<XrylothSession | null>(() => getSession());
   const [avatarOk, setAvatarOk] = useState(true);
 
@@ -57,9 +57,9 @@ export function TitleBar() {
         <span
           className="tinycaps text-[9px] font-bold tracking-[0.12em] px-2 py-[3px] rounded-md"
           style={{ color: themeColors.text_sub, border: `1px solid ${themeColors.border}`, background: `${themeColors.bg_card2}` }}
-          title="Live release version"
+          title="Installed version"
         >
-          v{liveVersion}
+          v{localVersion}
         </span>
       </div>
 

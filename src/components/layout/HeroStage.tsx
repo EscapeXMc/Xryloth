@@ -112,7 +112,7 @@ export function HeroSection() {
   return (
     <section className="space-y-4">
       {/* ==================== HERO STAGE ==================== */}
-      <div className="relative w-full min-h-[480px] overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-r from-zinc-950 via-zinc-900/80 to-zinc-950 px-8 py-10 md:px-12 shadow-[0_0_50px_rgba(0,0,0,0.8)] backdrop-blur-2xl hover:border-amber-500/40 transition-all duration-500 grid grid-cols-1 lg:grid-cols-12 items-center gap-8">
+      <div className="relative w-full min-h-[480px] overflow-hidden rounded-3xl border border-white/[0.09] bg-white/[0.035] backdrop-blur-xl px-8 py-10 md:px-12 shadow-[0_28px_60px_-28px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.07)] hover:border-amber-500/40 transition-all duration-500 grid grid-cols-1 lg:grid-cols-12 items-center gap-8">
         {/* Bottom vignette so text/buttons stay readable over the model */}
         <div className="absolute inset-x-0 bottom-0 z-0 h-56 bg-gradient-to-t from-black via-black/70 to-transparent pointer-events-none" />
         {/* Top subtle fade for the pill */}
@@ -174,7 +174,7 @@ export function HeroSection() {
         <div className="relative z-10 lg:col-span-8 flex flex-col items-center lg:items-start justify-center gap-5 w-full max-w-lg mx-auto lg:mx-0 text-center lg:text-left">
         {/* User badge — glass pill with pulsing presence dot */}
         <div className="flex items-center justify-center lg:justify-start w-full">
-          <div className="flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-zinc-900/90 border border-white/10 text-xs text-zinc-300 shadow-inner backdrop-blur-md">
+          <div className="flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-zinc-900/80 border border-white/10 text-xs text-zinc-300 backdrop-blur-md clay-btn">
             <CachedImage
               src={avatarUrl(username)}
               alt=""
@@ -223,9 +223,9 @@ export function HeroSection() {
             )}
           </div>
 
-          {/* Split LAUNCH GAME button — glow shadow that intensifies on hover */}
+          {/* Split LAUNCH GAME button — plush clay body, ember shadow */}
           <div className="relative w-full">
-            <div className="rounded-xl overflow-hidden shadow-[0_12px_34px_rgba(234,88,12,0.38),0_4px_10px_rgba(224,107,34,0.28)] hover:shadow-[0_16px_44px_rgba(234,88,12,0.5),0_6px_16px_rgba(224,107,34,0.38)] flex border border-amber-400/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300">
+            <div className="rounded-2xl overflow-hidden clay-ember flex border border-amber-400/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300">
               {/* Main action */}
               <button
                 onClick={() => selected && launch(selected.name)}
@@ -312,10 +312,10 @@ export function HeroSection() {
                   <button
                     key={inst.name}
                     onClick={() => setLaunchTarget(inst.name)}
-                    className={`flex-1 min-w-[132px] rounded-xl p-2.5 text-left transition-all duration-300 border shadow-sm
+                    className={`flex-1 min-w-[132px] rounded-xl p-2.5 text-left transition-all duration-300 border
                       ${active
-                        ? "bg-amber-500/10 border-amber-500/50 shadow-[0_0_18px_rgba(224,107,34,0.18)]"
-                        : "bg-black/45 border-white/15 hover:bg-white/[0.07] hover:border-amber-400/40 hover:-translate-y-0.5 hover:shadow-[0_6px_18px_rgba(0,0,0,0.45)]"
+                        ? "bg-amber-500/10 border-amber-500/50 shadow-[0_0_18px_rgba(224,107,34,0.18),inset_0_1px_0_rgba(255,255,255,0.10)]"
+                        : "bg-black/45 border-white/15 hover:bg-white/[0.07] hover:border-amber-400/40 hover:-translate-y-0.5 shadow-[0_8px_18px_-8px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.05)] hover:shadow-[0_12px_24px_-8px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.08)]"
                       }`}
                   >
                     <div className="flex items-center gap-2">
@@ -443,7 +443,7 @@ export function BottomGrid() {
                 onClick={(e) => {
                   if (!item.url) e.preventDefault();
                 }}
-                className="group relative flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/90 shadow-lg hover:border-amber-500/40 transition-all duration-300 hover:shadow-[0_0_26px_rgba(224,107,34,0.22)]"
+                className="group relative flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/80 clay hover:border-amber-500/40 transition-all duration-300 hover:shadow-[0_0_26px_rgba(224,107,34,0.22)]"
               >
                 {/* ---------- Thumbnail container (h-40) ---------- */}
                 <div className="relative h-40 w-full overflow-hidden bg-zinc-950">
@@ -526,7 +526,7 @@ export function BottomGrid() {
           </button>
         </div>
 
-        <div className="rounded-xl border border-white/10 bg-[#13161C]/90 p-2 space-y-1 max-h-[220px] overflow-y-auto">
+        <div className="rounded-xl border border-white/10 bg-[#13161C]/90 clay p-2 space-y-1 max-h-[220px] overflow-y-auto">
           {onlineFriends.length === 0 ? (
             <div className="flex items-center gap-2 px-2 py-3 text-zinc-500">
               <span className="w-2 h-2 rounded-full bg-zinc-600" />

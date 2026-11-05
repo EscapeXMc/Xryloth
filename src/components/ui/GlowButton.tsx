@@ -25,11 +25,11 @@ export function GlowButton({
   `;
 
   const variants = {
-    primary: `bg-gradient-to-r from-xryloth-500 to-xryloth-900 text-xryloth-accent_text shadow-xryloth-glow hover:shadow-xryloth-glow-hover`,
-    secondary: `bg-[#13161C]/50 border border-white/10 text-white hover:bg-white/10`,
-    ghost: `bg-transparent text-xryloth-400 hover:text-white hover:bg-white/10`,
-    danger: `bg-[#7f1d1d]/50 border border-red-500/30 text-red-400 hover:bg-[#7f1d1d]/80`,
-    "fast-danger": `bg-[#e06b22]/20 border border-fast-accent/30 text-fast-accent hover:bg-[#e06b22]/40`,
+    primary: `bg-gradient-to-r from-xryloth-500 to-xryloth-900 text-xryloth-accent_text shadow-[0_10px_28px_-8px_rgba(224,107,34,0.5),0_0_20px_rgba(224,107,34,0.22),inset_0_1px_0_rgba(255,255,255,0.28),inset_0_-3px_8px_rgba(0,0,0,0.3)] hover:shadow-[0_14px_34px_-8px_rgba(224,107,34,0.65),0_0_28px_rgba(224,107,34,0.35),inset_0_1px_0_rgba(255,255,255,0.35),inset_0_-3px_8px_rgba(0,0,0,0.3)] active:shadow-[inset_0_2px_6px_rgba(0,0,0,0.45)]`,
+    secondary: `bg-[#13161C]/60 border border-white/10 text-white hover:bg-white/10 clay-btn`,
+    ghost: `bg-transparent text-xryloth-400 hover:text-white hover:bg-white/10 clay-btn`,
+    danger: `bg-[#7f1d1d]/50 border border-red-500/30 text-red-400 hover:bg-[#7f1d1d]/80 clay-btn`,
+    "fast-danger": `bg-[#e06b22]/20 border border-fast-accent/30 text-fast-accent hover:bg-[#e06b22]/40 clay-btn`,
   };
 
   const sizes = {

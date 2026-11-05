@@ -7,17 +7,20 @@ import { useLauncherStore } from "../../stores";
 import { GlowButton } from "../ui/GlowButton";
 import { getSession, onSessionChanged, type XrylothSession } from "../../lib/auth";
 
-function WindowControls() {
+export function WindowControls() {
   return (
-    <div className="flex gap-1">
+    <div
+      data-tauri-drag-region
+      className="flex gap-1.5 p-1.5 rounded-bl-2xl bg-[#090B0E]/60 backdrop-blur-md border-b border-l border-white/[0.07] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+    >
       <GlowButton
         size="sm"
         variant="ghost"
         onClick={() => appWindow.minimize().catch(() => {})}
-        className="w-8 h-8 p-0 text-zinc-400 hover:bg-white/5 hover:text-white"
+        className="w-9 h-9 p-0 rounded-lg text-zinc-400 hover:bg-white/10 hover:text-white clay-btn"
         title="Minimize"
       >
-        <span className="text-[10px] font-bold">—</span>
+        <span className="text-[11px] font-bold">—</span>
       </GlowButton>
       <GlowButton
         size="sm"
@@ -27,19 +30,19 @@ function WindowControls() {
           if (max) { appWindow.unmaximize().catch(() => {}); }
           else { appWindow.maximize().catch(() => {}); }
         }}
-        className="w-8 h-8 p-0 text-zinc-400 hover:bg-white/5 hover:text-white"
+        className="w-9 h-9 p-0 rounded-lg text-zinc-400 hover:bg-white/10 hover:text-white clay-btn"
         title="Maximize"
       >
-        <span className="text-[10px] font-bold">□</span>
+        <span className="text-[11px] font-bold">□</span>
       </GlowButton>
       <GlowButton
         size="sm"
-        variant="fast-danger"
+        variant="ghost"
         onClick={() => appWindow.close().catch(() => {})}
-        className="w-8 h-8 p-0 text-white hover:bg-fast-danger/20"
+        className="w-9 h-9 p-0 rounded-lg text-zinc-400 hover:bg-red-500/20 hover:text-red-400 clay-btn"
         title="Close"
       >
-        <span className="text-[10px] font-bold">✕</span>
+        <span className="text-[11px] font-bold">✕</span>
       </GlowButton>
     </div>
   );
@@ -121,7 +124,7 @@ export function HeaderBar({ currentTab }: HeaderBarProps) {
   return (
     <header
       data-tauri-drag-region
-      className="h-14 border-b border-white/5 flex items-center justify-between px-5 bg-[#090B0E]/90 backdrop-blur-md z-20 flex-shrink-0"
+      className="h-14 border-b border-white/[0.07] flex items-center px-5 bg-[#090B0E]/70 backdrop-blur-md z-20 flex-shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
       style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
     >
       <div className="flex items-center gap-4 min-w-0">
@@ -145,7 +148,8 @@ export function HeaderBar({ currentTab }: HeaderBarProps) {
         </div>
       </div>
 
-      <WindowControls />
+      {/* Window controls live at the window's true top-right corner,
+          rendered by MainLayoutShell — see the note there. */}
     </header>
   );
 }

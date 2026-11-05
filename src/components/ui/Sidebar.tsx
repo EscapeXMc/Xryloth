@@ -91,7 +91,7 @@ function loadPinned(): boolean {
 }
 
 export function Sidebar() {
-  const { currentPage, setPage, themeColors, liveVersion, settings } = useLauncherStore();
+  const { currentPage, setPage, themeColors, localVersion, settings } = useLauncherStore();
   const { play: playSound } = useSounds();
   const potato = usePotatoMode();
   const [pinned, setPinned] = useState(loadPinned);
@@ -333,7 +333,7 @@ export function Sidebar() {
         color: themeColors.text_muted,
         opacity: 0.45,
         border: `1px solid ${themeColors.border}40`,
-      }}>V{liveVersion}</div>
+      }}>V{localVersion}</div>
       </aside>
     </div>
   );

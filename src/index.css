@@ -298,16 +298,31 @@ html, body {
   --x-surface-hover: rgba(255, 255, 255, 0.05);
   --x-trace: rgba(255, 255, 255, 0.08);
   --x-trace-strong: rgba(255, 255, 255, 0.12);
+
+  /* ===== GLASSPHORIUM × CLAYMORPHIUM =====
+     Glass  — a translucent fill over whatever sits behind it, sealed with a
+              hairline edge and a lit top rim.
+     Clay   — the dual shadow that makes a surface read as soft moulded
+              material: seated in its own shade below, lit from above,
+              with a press state that sinks instead of scaling. */
+  --x-glass: rgba(255, 255, 255, 0.04);
+  --x-glass-hi: rgba(255, 255, 255, 0.07);
+  --x-clay: 0 14px 30px -14px rgba(0, 0, 0, 0.65), 0 4px 10px -6px rgba(0, 0, 0, 0.45);
+  --x-clay-hi: inset 0 1px 0 rgba(255, 255, 255, 0.07), inset 0 -3px 8px rgba(0, 0, 0, 0.28);
+  --x-clay-btn: 0 6px 14px -6px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -2px 5px rgba(0, 0, 0, 0.3);
+  --x-clay-press: inset 0 2px 6px rgba(0, 0, 0, 0.45), inset 0 1px 2px rgba(0, 0, 0, 0.3);
+  --x-clay-ember: 0 14px 32px -12px rgba(224, 107, 34, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -3px 8px rgba(0, 0, 0, 0.32);
 }
 
 /* ===== GLASSMORPHISM =====
    Deep matte behind frosted glass, with a hairline trace for the edge and an
    ember sheen that follows the pointer. */
 .glass-card {
-  background: var(--x-surface);
+  background: var(--x-glass);
   backdrop-filter: blur(12px) saturate(1.6) brightness(1.05);
   -webkit-backdrop-filter: blur(12px) saturate(1.6) brightness(1.05);
   border: 1px solid var(--x-border);
+  box-shadow: var(--x-clay), var(--x-clay-hi);
   position: relative;
   overflow: hidden;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -335,10 +350,10 @@ html, body {
 
 .glass-card:hover::after { opacity: 1; }
 .glass-card:hover {
-  background: var(--x-surface-hover);
-  border-color: var(--x-trace-strong);
+  background: var(--x-glass-hi);
+  border-color: rgba(224, 107, 34, 0.28);
   transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 20px 40px -14px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 /* ===== DESIGN SYSTEM =====
@@ -354,8 +369,24 @@ html, body {
   backdrop-filter: blur(12px) saturate(1.4);
   -webkit-backdrop-filter: blur(12px) saturate(1.4);
   border-radius: 16px;
+  box-shadow: var(--x-clay), var(--x-clay-hi);
 }
 .panel-dark:hover { border-color: var(--x-border-soft); }
+
+/* ===== CLAY =====
+   Plush moulded depth. `.clay` seats a resting surface in its own shade;
+   `.clay-btn` gives a control the raised-clay profile and a press that
+   sinks into the material instead of scaling away from it. */
+.clay { box-shadow: var(--x-clay), var(--x-clay-hi); }
+.clay-btn {
+  box-shadow: var(--x-clay-btn);
+  transition: box-shadow 0.18s ease, transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+.clay-btn:active {
+  box-shadow: var(--x-clay-press);
+  transform: translateY(1px) scale(0.99);
+}
+.clay-ember { box-shadow: var(--x-clay-ember); }
 
 .trace { background: var(--x-trace); }
 .trace-strong { background: var(--x-trace-strong); }
@@ -367,15 +398,18 @@ html, body {
   gap: 6px;
   border: 1px solid var(--x-border-soft);
   color: var(--x-text);
-  background: transparent;
+  background: var(--x-glass);
   border-radius: 10px;
-  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+  box-shadow: var(--x-clay-btn);
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 .outline-btn:hover {
   background: var(--x-accent);
   border-color: var(--x-accent);
   color: var(--x-accent-text);
+  box-shadow: 0 8px 18px -8px rgba(224, 107, 34, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
+.outline-btn:active { box-shadow: var(--x-clay-press); transform: translateY(1px); }
 
 .ghost-btn {
   display: inline-flex;
@@ -384,15 +418,21 @@ html, body {
   color: var(--x-text-sub);
   background: transparent;
   border-radius: 10px;
-  transition: color 0.18s ease, background 0.18s ease;
+  transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
 .ghost-btn:hover { color: var(--x-text); background: var(--x-surface-hover); }
+.ghost-btn:active { box-shadow: var(--x-clay-press); transform: translateY(1px); }
 
 .label-muted { color: var(--x-text-muted); }
 
 /* Filled accent pill (active navigation, primary chips). */
-.pill-white { background: var(--x-accent); color: var(--x-accent-text); }
+.pill-white {
+  background: var(--x-accent);
+  color: var(--x-accent-text);
+  box-shadow: 0 8px 18px -8px rgba(224, 107, 34, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.25), inset 0 -2px 5px rgba(0, 0, 0, 0.25);
+}
 .pill-white svg { color: var(--x-accent-text); }
+.pill-white:active { box-shadow: var(--x-clay-press); transform: translateY(1px); }
 
 .glow-border { position: relative; }
 .glow-border::before {
